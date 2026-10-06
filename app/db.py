@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS failed_payments (
         'do_not_call',
         'failed'
     )),
+    next_retry_at TEXT,
     FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
 );
 
@@ -64,9 +65,19 @@ CREATE TABLE IF NOT EXISTS payment_links (
     status TEXT NOT NULL DEFAULT 'created',
     FOREIGN KEY (failed_payment_id) REFERENCES failed_payments(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS outbound_messages (
+    id TEXT PRIMARY KEY,
+    failed_payment_id TEXT NOT NULL,
+    channel TEXT NOT NULL DEFAULT 'sms',
+    body TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (failed_payment_id) REFERENCES failed_payments(id) ON DELETE CASCADE
+);
 """
 
 DROP_TABLES_SQL = """
+DROP TABLE IF EXISTS outbound_messages;
 DROP TABLE IF EXISTS payment_links;
 DROP TABLE IF EXISTS call_attempts;
 DROP TABLE IF EXISTS failed_payments;
@@ -80,7 +91,7 @@ def get_db_connection(db_path: Optional[str | Path] = None) -> sqlite3.Connectio
     if resolved_path != ":memory:":
         Path(resolved_path).parent.mkdir(parents=True, exist_ok=True)
 
-    conn = sqlite3.connect(resolved_path)
+    conn = sqlite3.connect(resolved_path, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON;")
     return conn
@@ -94,5 +105,9 @@ def init_db(db_path: Optional[str | Path] = None, reset: bool = False) -> None:
             if reset:
                 conn.executescript(DROP_TABLES_SQL)
             conn.executescript(SCHEMA_SQL)
+            # Ensure next_retry_at column exists in case an existing DB was preserved
+            cols = [r["name"] for r in conn.execute("PRAGMA table_info(failed_payments)").fetchall()]
+            if "next_retry_at" not in cols:
+                conn.execute("ALTER TABLE failed_payments ADD COLUMN next_retry_at TEXT;")
     finally:
         conn.close()

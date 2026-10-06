@@ -7,6 +7,7 @@ import pytest
 
 from app.db import get_db_connection
 from app.models import Customer, FailedPayment, FailureReason, Language, PaymentStatus
+from app.utils import normalize_e164
 from scripts.seed import generate_seed_data, seed_database
 
 
@@ -37,7 +38,7 @@ def test_seed_creates_10_customers_and_payments(temp_db: str):
 
 def test_customer_fields_and_edge_cases(temp_db: str):
     """Assert customer fields match specifications and edge cases are present."""
-    seed_database(db_path=temp_db, reset=True)
+    seed_database(db_path=temp_db, reset=True, demo_phone_override="")
     conn = get_db_connection(temp_db)
     try:
         rows = conn.execute("SELECT * FROM customers ORDER BY id").fetchall()
@@ -49,10 +50,10 @@ def test_customer_fields_and_edge_cases(temp_db: str):
         expected_ids = [f"cust_{i:03d}" for i in range(1, 11)]
         assert [c.id for c in customers] == expected_ids
 
-        # Phone numbers match fake pattern +91 98765 000NN
-        fake_pattern = re.compile(r"^\+91 98765 000(0[1-9]|10)$")
+        # Phone numbers match E.164 pattern +9198765000NN with no spaces
+        fake_pattern = re.compile(r"^\+9198765000(0[1-9]|10)$")
         for c in customers:
-            assert fake_pattern.match(c.phone), f"Phone {c.phone} does not match fake pattern"
+            assert fake_pattern.match(c.phone), f"Phone {c.phone} does not match E.164 fake pattern"
 
         # Language distribution: 6 english, 4 hindi
         en_count = sum(1 for c in customers if c.language == Language.EN)
@@ -116,15 +117,15 @@ def test_failed_payments_fields_and_edge_cases(temp_db: str):
 
 def test_deterministic_seed_output(temp_db: str):
     """Assert repeated seed generation produces deterministic and identical output."""
-    cust_1, pay_1 = generate_seed_data()
-    cust_2, pay_2 = generate_seed_data()
+    cust_1, pay_1 = generate_seed_data(demo_phone_override="")
+    cust_2, pay_2 = generate_seed_data(demo_phone_override="")
 
     assert cust_1 == cust_2
     assert pay_1 == pay_2
 
     # Idempotent database seeding with reset
-    seed_database(db_path=temp_db, reset=True)
-    seed_database(db_path=temp_db, reset=True)
+    seed_database(db_path=temp_db, reset=True, demo_phone_override="")
+    seed_database(db_path=temp_db, reset=True, demo_phone_override="")
 
     conn = get_db_connection(temp_db)
     try:
@@ -138,18 +139,18 @@ def test_deterministic_seed_output(temp_db: str):
 
 def test_demo_phone_handling(temp_db: str, monkeypatch: pytest.MonkeyPatch):
     """Assert cust_001 and cust_002 take DEMO_PHONE when set, and fall back when unset."""
-    fake_demo_number = "+91 98765 00099"
+    fake_demo_number = "+919876500099"
 
     # Test with DEMO_PHONE set
     monkeypatch.setenv("DEMO_PHONE", fake_demo_number)
     custs_with_demo, _ = seed_database(db_path=temp_db, reset=True)
     assert custs_with_demo[0]["phone"] == fake_demo_number
     assert custs_with_demo[1]["phone"] == fake_demo_number
-    assert custs_with_demo[2]["phone"] == "+91 98765 00003"
+    assert custs_with_demo[2]["phone"] == "+919876500003"
 
     # Test with DEMO_PHONE unset
     monkeypatch.delenv("DEMO_PHONE", raising=False)
     custs_without_demo, _ = seed_database(db_path=temp_db, reset=True, demo_phone_override="")
-    assert custs_without_demo[0]["phone"] == "+91 98765 00001"
-    assert custs_without_demo[1]["phone"] == "+91 98765 00002"
-    assert custs_without_demo[2]["phone"] == "+91 98765 00003"
+    assert custs_without_demo[0]["phone"] == "+919876500001"
+    assert custs_without_demo[1]["phone"] == "+919876500002"
+    assert custs_without_demo[2]["phone"] == "+919876500003"

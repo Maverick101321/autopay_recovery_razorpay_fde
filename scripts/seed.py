@@ -13,23 +13,26 @@ if str(BASE_DIR) not in sys.path:
 from app.config import DEMO_PHONE
 from app.db import get_db_connection, init_db
 from app.models import Customer, FailedPayment, FailureReason, Language, PaymentStatus
+from app.utils import normalize_e164
 
 
 def generate_seed_data(demo_phone_override: Optional[str] = None) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Generate deterministic fictional customers and failed autopay payment records."""
     random.seed(42)
 
-    demo_phone = (
+    demo_phone_raw = (
         demo_phone_override
         if demo_phone_override is not None
         else os.getenv("DEMO_PHONE", DEMO_PHONE)
     ).strip()
 
+    demo_phone = normalize_e164(demo_phone_raw) if demo_phone_raw else ""
+
     customers_raw = [
         {
             "id": "cust_001",
             "name": "Aarav Sharma",
-            "phone": demo_phone or "+91 98765 00001",
+            "phone": demo_phone or normalize_e164("+91 98765 00001"),
             "language": Language.EN,
             "consent_to_call": 1,
             "call_window_start": "09:00",
@@ -39,7 +42,7 @@ def generate_seed_data(demo_phone_override: Optional[str] = None) -> tuple[list[
         {
             "id": "cust_002",
             "name": "Priya Patel",
-            "phone": demo_phone or "+91 98765 00002",
+            "phone": demo_phone or normalize_e164("+91 98765 00002"),
             "language": Language.HI,
             "consent_to_call": 1,
             "call_window_start": "10:00",
@@ -49,7 +52,7 @@ def generate_seed_data(demo_phone_override: Optional[str] = None) -> tuple[list[
         {
             "id": "cust_003",
             "name": "Rohan Verma",
-            "phone": "+91 98765 00003",
+            "phone": normalize_e164("+91 98765 00003"),
             "language": Language.EN,
             "consent_to_call": 0,  # Edge case: consent_to_call = 0 (skipped)
             "call_window_start": "09:00",
@@ -59,7 +62,7 @@ def generate_seed_data(demo_phone_override: Optional[str] = None) -> tuple[list[
         {
             "id": "cust_004",
             "name": "Ananya Iyer",
-            "phone": "+91 98765 00004",
+            "phone": normalize_e164("+91 98765 00004"),
             "language": Language.EN,
             "consent_to_call": 1,
             "call_window_start": "10:00",  # Edge case: narrow window
@@ -69,7 +72,7 @@ def generate_seed_data(demo_phone_override: Optional[str] = None) -> tuple[list[
         {
             "id": "cust_005",
             "name": "Vikram Singh",
-            "phone": "+91 98765 00005",
+            "phone": normalize_e164("+91 98765 00005"),
             "language": Language.HI,
             "consent_to_call": 1,
             "call_window_start": "09:30",
@@ -79,7 +82,7 @@ def generate_seed_data(demo_phone_override: Optional[str] = None) -> tuple[list[
         {
             "id": "cust_006",
             "name": "Sneha Reddy",
-            "phone": "+91 98765 00006",
+            "phone": normalize_e164("+91 98765 00006"),
             "language": Language.EN,
             "consent_to_call": 1,
             "call_window_start": "09:00",
@@ -89,7 +92,7 @@ def generate_seed_data(demo_phone_override: Optional[str] = None) -> tuple[list[
         {
             "id": "cust_007",
             "name": "Arjun Mehta",
-            "phone": "+91 98765 00007",
+            "phone": normalize_e164("+91 98765 00007"),
             "language": Language.HI,
             "consent_to_call": 1,
             "call_window_start": "11:00",
@@ -99,7 +102,7 @@ def generate_seed_data(demo_phone_override: Optional[str] = None) -> tuple[list[
         {
             "id": "cust_008",
             "name": "Pooja Nair",
-            "phone": "+91 98765 00008",
+            "phone": normalize_e164("+91 98765 00008"),
             "language": Language.EN,
             "consent_to_call": 1,
             "call_window_start": "09:00",
@@ -109,7 +112,7 @@ def generate_seed_data(demo_phone_override: Optional[str] = None) -> tuple[list[
         {
             "id": "cust_009",
             "name": "Rajesh Gupta",
-            "phone": "+91 98765 00009",
+            "phone": normalize_e164("+91 98765 00009"),
             "language": Language.HI,
             "consent_to_call": 1,
             "call_window_start": "10:00",
@@ -119,7 +122,7 @@ def generate_seed_data(demo_phone_override: Optional[str] = None) -> tuple[list[
         {
             "id": "cust_010",
             "name": "Kavita Joshi",
-            "phone": "+91 98765 00010",
+            "phone": normalize_e164("+91 98765 00010"),
             "language": Language.EN,
             "consent_to_call": 1,
             "call_window_start": "09:00",
@@ -139,6 +142,7 @@ def generate_seed_data(demo_phone_override: Optional[str] = None) -> tuple[list[
             "failed_at": "2026-10-05T08:15:00Z",
             "retry_count": 0,
             "status": PaymentStatus.PENDING,
+            "next_retry_at": None,
         },
         {
             "id": "pay_002",
@@ -150,6 +154,7 @@ def generate_seed_data(demo_phone_override: Optional[str] = None) -> tuple[list[
             "failed_at": "2026-10-05T08:45:00Z",
             "retry_count": 0,
             "status": PaymentStatus.PENDING,
+            "next_retry_at": None,
         },
         {
             "id": "pay_003",
@@ -161,6 +166,7 @@ def generate_seed_data(demo_phone_override: Optional[str] = None) -> tuple[list[
             "failed_at": "2026-10-05T09:00:00Z",
             "retry_count": 0,
             "status": PaymentStatus.PENDING,
+            "next_retry_at": None,
         },
         {
             "id": "pay_004",
@@ -172,6 +178,7 @@ def generate_seed_data(demo_phone_override: Optional[str] = None) -> tuple[list[
             "failed_at": "2026-10-05T09:30:00Z",
             "retry_count": 0,
             "status": PaymentStatus.PENDING,
+            "next_retry_at": None,
         },
         {
             "id": "pay_005",
@@ -183,6 +190,7 @@ def generate_seed_data(demo_phone_override: Optional[str] = None) -> tuple[list[
             "failed_at": "2026-10-05T10:00:00Z",
             "retry_count": 2,  # Edge case: retry_count = 2 (near retry cap)
             "status": PaymentStatus.PENDING,
+            "next_retry_at": None,
         },
         {
             "id": "pay_006",
@@ -194,6 +202,7 @@ def generate_seed_data(demo_phone_override: Optional[str] = None) -> tuple[list[
             "failed_at": "2026-10-05T10:30:00Z",
             "retry_count": 0,
             "status": PaymentStatus.PENDING,
+            "next_retry_at": None,
         },
         {
             "id": "pay_007",
@@ -205,6 +214,7 @@ def generate_seed_data(demo_phone_override: Optional[str] = None) -> tuple[list[
             "failed_at": "2026-10-05T11:00:00Z",
             "retry_count": 0,
             "status": PaymentStatus.PENDING,
+            "next_retry_at": None,
         },
         {
             "id": "pay_008",
@@ -216,6 +226,7 @@ def generate_seed_data(demo_phone_override: Optional[str] = None) -> tuple[list[
             "failed_at": "2026-10-05T11:30:00Z",
             "retry_count": 0,
             "status": PaymentStatus.PENDING,
+            "next_retry_at": None,
         },
         {
             "id": "pay_009",
@@ -227,6 +238,7 @@ def generate_seed_data(demo_phone_override: Optional[str] = None) -> tuple[list[
             "failed_at": "2026-10-05T12:00:00Z",
             "retry_count": 0,
             "status": PaymentStatus.PENDING,
+            "next_retry_at": None,
         },
         {
             "id": "pay_010",
@@ -238,6 +250,7 @@ def generate_seed_data(demo_phone_override: Optional[str] = None) -> tuple[list[
             "failed_at": "2026-10-05T12:30:00Z",
             "retry_count": 0,
             "status": PaymentStatus.PENDING,
+            "next_retry_at": None,
         },
     ]
 
@@ -277,10 +290,10 @@ def seed_database(
                 """
                 INSERT OR REPLACE INTO failed_payments (
                     id, customer_id, merchant_name, plan_name,
-                    amount_inr, failure_reason, failed_at, retry_count, status
+                    amount_inr, failure_reason, failed_at, retry_count, status, next_retry_at
                 ) VALUES (
                     :id, :customer_id, :merchant_name, :plan_name,
-                    :amount_inr, :failure_reason, :failed_at, :retry_count, :status
+                    :amount_inr, :failure_reason, :failed_at, :retry_count, :status, :next_retry_at
                 )
                 """,
                 payments,
@@ -329,10 +342,16 @@ def print_seeded_table(customers: list[dict[str, Any]], payments: list[dict[str,
         consent_str = "Yes (1)" if c["consent_to_call"] == 1 else "No (0)"
         window_str = f"{c['call_window_start']}-{c['call_window_end']}"
 
+        raw_phone = c["phone"]
+        if raw_phone.startswith("+91") and len(raw_phone) == 13:
+            formatted_phone = f"{raw_phone[:3]} {raw_phone[3:8]} {raw_phone[8:]}"
+        else:
+            formatted_phone = raw_phone
+
         row_fields = [
             f"{c['id']:<8}",
             f"{c['name']:<14}",
-            f"{c['phone']:<17}",
+            f"{formatted_phone:<17}",
             f"{c['language']:<4}",
             f"{consent_str:<7}",
             f"{window_str:<13}",

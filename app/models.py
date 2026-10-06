@@ -52,6 +52,7 @@ class FailedPayment(BaseModel):
     failed_at: str
     retry_count: int = Field(default=0, ge=0)
     status: PaymentStatus = PaymentStatus.PENDING
+    next_retry_at: Optional[str] = None
 
 
 class CallAttempt(BaseModel):
@@ -75,3 +76,13 @@ class PaymentLink(BaseModel):
     url: str
     created_at: str
     status: str = "created"
+
+
+class OutboundMessage(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    failed_payment_id: str
+    channel: str = "sms"
+    body: str
+    created_at: str

@@ -1,8 +1,9 @@
 # Environment variables
 .env
 
-# Database files
+# Database and generated runtime files
 data/*.db
+data/retell_ids.json
 
 # Python bytecode and caches
 __pycache__/
