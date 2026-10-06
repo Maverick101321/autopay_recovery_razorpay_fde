@@ -1,0 +1,21 @@
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+BASE_DIR: Path = Path(__file__).resolve().parent.parent
+
+# Load environment variables from .env file at repo root if present
+load_dotenv(dotenv_path=BASE_DIR / ".env")
+
+RETELL_API_KEY: str = os.getenv("RETELL_API_KEY", "")
+DEMO_PHONE: str = os.getenv("DEMO_PHONE", "")
+PUBLIC_BASE_URL: str = os.getenv("PUBLIC_BASE_URL", "")
+DB_PATH: str = os.getenv("DB_PATH", "data/autopay.db") or "data/autopay.db"
+
+
+def get_resolved_db_path(db_path: str | Path | None = None) -> str:
+    """Resolve database path relative to project root if not absolute or :memory:."""
+    target = str(db_path if db_path is not None else os.getenv("DB_PATH", DB_PATH) or "data/autopay.db")
+    if target == ":memory:" or Path(target).is_absolute():
+        return target
+    return str(BASE_DIR / target)

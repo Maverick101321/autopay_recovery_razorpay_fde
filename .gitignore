@@ -1,0 +1,14 @@
+# Environment variables
+.env
+
+# Database files
+data/*.db
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Virtual environment
+.venv/
