@@ -18,6 +18,7 @@ REQUIRE_WEBHOOK_SIGNATURE: bool = os.getenv("REQUIRE_WEBHOOK_SIGNATURE", "true")
 
 RETELL_VOICE_ID_EN: str = os.getenv("RETELL_VOICE_ID_EN", "")
 RETELL_VOICE_ID_HI: str = os.getenv("RETELL_VOICE_ID_HI", "")
+RETELL_FROM_NUMBER: str = os.getenv("RETELL_FROM_NUMBER", "")
 
 
 def allowed_dial_numbers() -> set[str]:

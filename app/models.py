@@ -59,13 +59,18 @@ class CallAttempt(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: Optional[int] = None
-    failed_payment_id: str
+    failed_payment_id: Optional[str] = None
     retell_call_id: Optional[str] = None
     started_at: str
     ended_at: Optional[str] = None
     outcome: Optional[str] = None
     transcript: Optional[str] = None
     notes: Optional[str] = None
+    duration_ms: Optional[int] = None
+    disconnection_reason: Optional[str] = None
+    call_cost: Optional[float] = None
+    call_analysis: Optional[str] = None
+    raw_events: Optional[str] = None
 
 
 class PaymentLink(BaseModel):

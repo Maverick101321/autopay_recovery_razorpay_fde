@@ -47,13 +47,18 @@ CREATE TABLE IF NOT EXISTS failed_payments (
 
 CREATE TABLE IF NOT EXISTS call_attempts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    failed_payment_id TEXT NOT NULL,
-    retell_call_id TEXT,
+    failed_payment_id TEXT,
+    retell_call_id TEXT UNIQUE,
     started_at TEXT NOT NULL,
     ended_at TEXT,
     outcome TEXT,
     transcript TEXT,
     notes TEXT,
+    duration_ms INTEGER,
+    disconnection_reason TEXT,
+    call_cost REAL,
+    call_analysis TEXT,
+    raw_events TEXT,
     FOREIGN KEY (failed_payment_id) REFERENCES failed_payments(id) ON DELETE CASCADE
 );
 
@@ -109,5 +114,50 @@ def init_db(db_path: Optional[str | Path] = None, reset: bool = False) -> None:
             cols = [r["name"] for r in conn.execute("PRAGMA table_info(failed_payments)").fetchall()]
             if "next_retry_at" not in cols:
                 conn.execute("ALTER TABLE failed_payments ADD COLUMN next_retry_at TEXT;")
+
+            # Ensure new call_attempts columns exist
+            ca_cols = {r["name"]: r for r in conn.execute("PRAGMA table_info(call_attempts)").fetchall()}
+            if "duration_ms" not in ca_cols:
+                conn.execute("ALTER TABLE call_attempts ADD COLUMN duration_ms INTEGER;")
+            if "disconnection_reason" not in ca_cols:
+                conn.execute("ALTER TABLE call_attempts ADD COLUMN disconnection_reason TEXT;")
+            if "call_cost" not in ca_cols:
+                conn.execute("ALTER TABLE call_attempts ADD COLUMN call_cost REAL;")
+            if "call_analysis" not in ca_cols:
+                conn.execute("ALTER TABLE call_attempts ADD COLUMN call_analysis TEXT;")
+            if "raw_events" not in ca_cols:
+                conn.execute("ALTER TABLE call_attempts ADD COLUMN raw_events TEXT;")
+
+            # Check if failed_payment_id in existing call_attempts has notnull constraint
+            if "failed_payment_id" in ca_cols and ca_cols["failed_payment_id"]["notnull"] == 1:
+                conn.execute("PRAGMA foreign_keys = OFF;")
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS call_attempts_migration (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        failed_payment_id TEXT,
+                        retell_call_id TEXT UNIQUE,
+                        started_at TEXT NOT NULL,
+                        ended_at TEXT,
+                        outcome TEXT,
+                        transcript TEXT,
+                        notes TEXT,
+                        duration_ms INTEGER,
+                        disconnection_reason TEXT,
+                        call_cost REAL,
+                        call_analysis TEXT,
+                        raw_events TEXT,
+                        FOREIGN KEY (failed_payment_id) REFERENCES failed_payments(id) ON DELETE CASCADE
+                    );
+                """)
+                conn.execute("""
+                    INSERT INTO call_attempts_migration (
+                        id, failed_payment_id, retell_call_id, started_at, ended_at, outcome, transcript, notes
+                    )
+                    SELECT id, failed_payment_id, retell_call_id, started_at, ended_at, outcome, transcript, notes
+                    FROM call_attempts;
+                """)
+                conn.execute("DROP TABLE call_attempts;")
+                conn.execute("ALTER TABLE call_attempts_migration RENAME TO call_attempts;")
+                conn.execute("PRAGMA foreign_keys = ON;")
     finally:
         conn.close()

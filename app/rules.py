@@ -10,9 +10,14 @@ TERMINAL_STATUSES: set[str] = {"recovered", "escalated", "do_not_call", "failed"
 
 
 def _get_val(obj: Any, key: str, default: Any = None) -> Any:
-    """Helper to access dict keys or object attributes seamlessly."""
+    """Helper to access dict keys, sqlite3.Row columns, or object attributes seamlessly."""
     if isinstance(obj, dict):
         return obj.get(key, default)
+    try:
+        val = obj[key]
+        return val if val is not None else default
+    except (KeyError, IndexError, TypeError):
+        pass
     return getattr(obj, key, default)
 
 

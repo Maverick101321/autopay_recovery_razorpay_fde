@@ -16,7 +16,7 @@ from app.config import (
 )
 from app.db import get_db_connection
 from app.rules import next_retry_time
-from app.utils import verify_retell_webhook_signature
+from app.utils import normalize_failed_payment_id, verify_retell_webhook_signature
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("autopay.tools")
@@ -80,7 +80,7 @@ async def get_payment_context(request: Request, db: sqlite3.Connection = Depends
     args = extract_args(body)
     logger.info("get_payment_context called with args: %s", args)
 
-    failed_payment_id = args.get("failed_payment_id")
+    failed_payment_id = normalize_failed_payment_id(args.get("failed_payment_id"))
     if not failed_payment_id:
         return {"result": "I couldn't find that account"}
 
@@ -117,7 +117,7 @@ async def create_payment_link(request: Request, db: sqlite3.Connection = Depends
     args = extract_args(body)
     logger.info("create_payment_link called with args: %s", args)
 
-    failed_payment_id = args.get("failed_payment_id")
+    failed_payment_id = normalize_failed_payment_id(args.get("failed_payment_id"))
     if not failed_payment_id:
         return {"result": "I couldn't find that account"}
 
@@ -162,7 +162,7 @@ async def log_outcome(request: Request, db: sqlite3.Connection = Depends(get_db)
     args = extract_args(body)
     logger.info("log_outcome called with args: %s", args)
 
-    failed_payment_id = args.get("failed_payment_id")
+    failed_payment_id = normalize_failed_payment_id(args.get("failed_payment_id"))
     outcome = args.get("outcome")
     notes = args.get("notes") or ""
 
@@ -176,6 +176,11 @@ async def log_outcome(request: Request, db: sqlite3.Connection = Depends(get_db)
     if outcome == "promised_to_pay":
         new_status = "promised"
         new_retry = payment["retry_count"]
+    elif outcome == "claims_paid":
+        new_status = "promised"
+        new_retry = payment["retry_count"]
+        claim_note = "customer claims paid; unverified"
+        notes = f"{notes}; {claim_note}" if notes else claim_note
     elif outcome == "paid_now":
         new_status = "recovered"
         new_retry = payment["retry_count"]
@@ -193,7 +198,7 @@ async def log_outcome(request: Request, db: sqlite3.Connection = Depends(get_db)
         )
 
         latest_attempt = db.execute(
-            "SELECT id FROM call_attempts WHERE failed_payment_id = ? ORDER BY id DESC LIMIT 1",
+            "SELECT id, notes FROM call_attempts WHERE failed_payment_id = ? ORDER BY id DESC LIMIT 1",
             (failed_payment_id,),
         ).fetchone()
 
@@ -221,7 +226,7 @@ async def schedule_retry(request: Request, db: sqlite3.Connection = Depends(get_
     args = extract_args(body)
     logger.info("schedule_retry called with args: %s", args)
 
-    failed_payment_id = args.get("failed_payment_id")
+    failed_payment_id = normalize_failed_payment_id(args.get("failed_payment_id"))
     if not failed_payment_id:
         return {"result": "I couldn't find that account"}
 
@@ -256,7 +261,7 @@ async def escalate_to_human(request: Request, db: sqlite3.Connection = Depends(g
     args = extract_args(body)
     logger.info("escalate_to_human called with args: %s", args)
 
-    failed_payment_id = args.get("failed_payment_id")
+    failed_payment_id = normalize_failed_payment_id(args.get("failed_payment_id"))
     reason = args.get("reason") or "Customer requested escalation"
 
     if not failed_payment_id:
@@ -290,9 +295,45 @@ async def escalate_to_human(request: Request, db: sqlite3.Connection = Depends(g
 app.include_router(tools_router)
 
 
+MAX_RAW_EVENTS_BYTES: int = 100 * 1024  # 100 KB
+
+
+def append_raw_event(existing_events_str: Optional[str], event_payload: dict[str, Any]) -> str:
+    """Append event payload to existing raw events JSON list, capped at 100 KB."""
+    events: list[Any] = []
+    if existing_events_str:
+        try:
+            parsed = json.loads(existing_events_str)
+            if isinstance(parsed, list):
+                events = parsed
+            else:
+                events = [parsed]
+        except Exception:
+            events = [{"raw": existing_events_str}]
+    events.append(event_payload)
+    out_str = json.dumps(events)
+    while len(out_str.encode("utf-8")) > MAX_RAW_EVENTS_BYTES and len(events) > 1:
+        events.pop(0)
+        out_str = json.dumps(events)
+    if len(out_str.encode("utf-8")) > MAX_RAW_EVENTS_BYTES:
+        out_str = out_str[:MAX_RAW_EVENTS_BYTES]
+    return out_str
+
+
+def parse_timestamp(val: Any) -> Optional[str]:
+    """Parse Retell timestamp (ms int/float or ISO string) to ISO string."""
+    if val is None:
+        return None
+    if isinstance(val, (int, float)):
+        return datetime.fromtimestamp(val / 1000.0, tz=timezone.utc).isoformat()
+    if isinstance(val, str):
+        return val
+    return None
+
+
 @app.post("/webhooks/retell")
 async def retell_webhook(request: Request, db: sqlite3.Connection = Depends(get_db)) -> Any:
-    """Receive call events from Retell AI with HMAC-SHA256 signature verification."""
+    """Receive call events from Retell AI with HMAC-SHA256 signature verification and robust upsert."""
     raw_body_bytes = await request.body()
     raw_body_str = raw_body_bytes.decode("utf-8")
 
@@ -307,7 +348,6 @@ async def retell_webhook(request: Request, db: sqlite3.Connection = Depends(get_
         signature = request.headers.get("x-retell-signature")
         api_key = os.getenv("RETELL_API_KEY", RETELL_API_KEY)
         if not verify_retell_webhook_signature(raw_body_str, api_key, signature):
-            logger.warning("Rejected webhook: invalid or missing x-retell-signature")
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 content={"detail": "Unauthorized: invalid webhook signature"},
@@ -320,45 +360,126 @@ async def retell_webhook(request: Request, db: sqlite3.Connection = Depends(get_
 
     event = payload.get("event", "")
     call = payload.get("call") or {}
-    logger.info("Retell webhook received: event=%s, call_id=%s", event, call.get("call_id"))
-
     call_id = call.get("call_id")
+    logger.info("Retell webhook received: event=%s, call_id=%s", event, call_id)
+
+    # Resolve failed_payment_id: metadata -> dynamic_variables -> None (with warning)
     metadata = call.get("metadata") or call.get("customer_metadata") or {}
-    failed_payment_id = metadata.get("failed_payment_id") or call.get("failed_payment_id")
+    dynamic_vars = call.get("retell_llm_dynamic_variables") or {}
+    raw_pay_id = metadata.get("failed_payment_id") or dynamic_vars.get("failed_payment_id") or call.get("failed_payment_id")
+    failed_payment_id = normalize_failed_payment_id(raw_pay_id) if raw_pay_id else None
 
-    if event == "call_started" and call_id and failed_payment_id:
-        started_at = call.get("start_timestamp") or datetime.now(timezone.utc).isoformat()
-        if isinstance(started_at, (int, float)):
-            started_at = datetime.fromtimestamp(started_at / 1000, tz=timezone.utc).isoformat()
+    if failed_payment_id:
+        pay_row = db.execute("SELECT id FROM failed_payments WHERE id = ?", (failed_payment_id,)).fetchone()
+        if not pay_row:
+            logger.warning(
+                "Retell webhook: failed_payment_id %s not found in failed_payments, storing NULL",
+                failed_payment_id,
+            )
+            failed_payment_id = None
+    else:
+        logger.warning("Retell webhook: Could not resolve failed_payment_id for call %s", call_id)
 
+    # Extract call details
+    started_at = parse_timestamp(call.get("start_timestamp"))
+    ended_at = parse_timestamp(call.get("end_timestamp"))
+    transcript = call.get("transcript")
+    duration_ms = call.get("duration_ms")
+    disconnection_reason = call.get("disconnection_reason")
+
+    call_cost: Optional[float] = None
+    call_cost_raw = call.get("call_cost")
+    if isinstance(call_cost_raw, dict):
+        comb = call_cost_raw.get("combined_cost") or call_cost_raw.get("total_one_time_cost")
+        if comb is not None:
+            try:
+                call_cost = float(comb)
+            except (ValueError, TypeError):
+                pass
+    elif isinstance(call_cost_raw, (int, float)):
+        call_cost = float(call_cost_raw)
+
+    call_analysis: Optional[str] = None
+    call_analysis_raw = call.get("call_analysis")
+    if isinstance(call_analysis_raw, dict):
+        call_analysis = json.dumps(call_analysis_raw)
+    elif isinstance(call_analysis_raw, str):
+        call_analysis = call_analysis_raw
+
+    # Upsert into call_attempts per retell_call_id
+    if call_id:
         with db:
-            existing = db.execute("SELECT id FROM call_attempts WHERE retell_call_id = ?", (call_id,)).fetchone()
-            if not existing:
-                db.execute(
-                    "INSERT INTO call_attempts (failed_payment_id, retell_call_id, started_at) VALUES (?, ?, ?)",
-                    (failed_payment_id, call_id, str(started_at)),
-                )
-
-    elif event == "call_ended" and call_id:
-        transcript = call.get("transcript") or ""
-        ended_at = call.get("end_timestamp") or datetime.now(timezone.utc).isoformat()
-        if isinstance(ended_at, (int, float)):
-            ended_at = datetime.fromtimestamp(ended_at / 1000, tz=timezone.utc).isoformat()
-
-        with db:
-            existing = db.execute("SELECT id FROM call_attempts WHERE retell_call_id = ?", (call_id,)).fetchone()
+            existing = db.execute("SELECT * FROM call_attempts WHERE retell_call_id = ?", (call_id,)).fetchone()
             if existing:
-                db.execute(
-                    "UPDATE call_attempts SET transcript = ?, ended_at = ? WHERE retell_call_id = ?",
-                    (transcript, str(ended_at), call_id),
+                new_failed_payment_id = failed_payment_id or existing["failed_payment_id"]
+                new_started_at = started_at or existing["started_at"]
+                new_ended_at = ended_at or existing["ended_at"]
+                new_transcript = transcript if transcript is not None else existing["transcript"]
+                new_duration_ms = duration_ms if duration_ms is not None else existing["duration_ms"]
+                new_disconnection_reason = (
+                    disconnection_reason if disconnection_reason is not None else existing["disconnection_reason"]
                 )
-            elif failed_payment_id:
-                started_at = call.get("start_timestamp") or ended_at
-                if isinstance(started_at, (int, float)):
-                    started_at = datetime.fromtimestamp(started_at / 1000, tz=timezone.utc).isoformat()
+                new_call_cost = call_cost if call_cost is not None else existing["call_cost"]
+                new_call_analysis = call_analysis if call_analysis is not None else existing["call_analysis"]
+                new_raw_events = append_raw_event(existing["raw_events"], payload)
+
                 db.execute(
-                    "INSERT INTO call_attempts (failed_payment_id, retell_call_id, started_at, ended_at, transcript) VALUES (?, ?, ?, ?, ?)",
-                    (failed_payment_id, call_id, str(started_at), str(ended_at), transcript),
+                    """
+                    UPDATE call_attempts
+                    SET failed_payment_id = ?,
+                        started_at = ?,
+                        ended_at = ?,
+                        transcript = ?,
+                        duration_ms = ?,
+                        disconnection_reason = ?,
+                        call_cost = ?,
+                        call_analysis = ?,
+                        raw_events = ?
+                    WHERE retell_call_id = ?
+                    """,
+                    (
+                        new_failed_payment_id,
+                        new_started_at,
+                        new_ended_at,
+                        new_transcript,
+                        new_duration_ms,
+                        new_disconnection_reason,
+                        new_call_cost,
+                        new_call_analysis,
+                        new_raw_events,
+                        call_id,
+                    ),
+                )
+            else:
+                new_started_at = started_at or datetime.now(timezone.utc).isoformat()
+                new_raw_events = append_raw_event(None, payload)
+                db.execute(
+                    """
+                    INSERT INTO call_attempts (
+                        failed_payment_id,
+                        retell_call_id,
+                        started_at,
+                        ended_at,
+                        transcript,
+                        duration_ms,
+                        disconnection_reason,
+                        call_cost,
+                        call_analysis,
+                        raw_events
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        failed_payment_id,
+                        call_id,
+                        new_started_at,
+                        ended_at,
+                        transcript,
+                        duration_ms,
+                        disconnection_reason,
+                        call_cost,
+                        call_analysis,
+                        new_raw_events,
+                    ),
                 )
 
     return {"status": "ok"}
@@ -383,4 +504,46 @@ def get_admin_state(db: sqlite3.Connection = Depends(get_db)) -> list[dict[str, 
         FROM failed_payments p
         ORDER BY p.id
     """).fetchall()
+    return [dict(r) for r in rows]
+
+
+@app.post("/admin/confirm_payment", dependencies=[Depends(verify_tool_secret)])
+async def confirm_payment(request: Request, db: sqlite3.Connection = Depends(get_db)) -> dict[str, Any]:
+    """Confirm payment receipt and transition payment status to 'recovered'."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    args = extract_args(body)
+    raw_id = args.get("failed_payment_id")
+    failed_payment_id = normalize_failed_payment_id(raw_id)
+    if not failed_payment_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing failed_payment_id")
+
+    payment = db.execute("SELECT * FROM failed_payments WHERE id = ?", (failed_payment_id,)).fetchone()
+    if not payment:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment record not found")
+
+    notes = args.get("notes") or "Payment confirmed via admin"
+    with db:
+        db.execute("UPDATE failed_payments SET status = 'recovered' WHERE id = ?", (failed_payment_id,))
+        latest_attempt = db.execute(
+            "SELECT id, notes FROM call_attempts WHERE failed_payment_id = ? ORDER BY id DESC LIMIT 1",
+            (failed_payment_id,),
+        ).fetchone()
+        if latest_attempt:
+            comb = f"{latest_attempt['notes']}; {notes}" if latest_attempt["notes"] else notes
+            db.execute("UPDATE call_attempts SET notes = ?, outcome = 'recovered' WHERE id = ?", (comb, latest_attempt["id"]))
+
+    return {
+        "result": f"Payment {failed_payment_id} marked as recovered.",
+        "status": "recovered",
+        "failed_payment_id": failed_payment_id,
+    }
+
+
+@app.get("/admin/calls", dependencies=[Depends(verify_tool_secret)])
+def get_admin_calls(db: sqlite3.Connection = Depends(get_db)) -> list[dict[str, Any]]:
+    """Return all call attempts ordered by id desc."""
+    rows = db.execute("SELECT * FROM call_attempts ORDER BY id DESC").fetchall()
     return [dict(r) for r in rows]
