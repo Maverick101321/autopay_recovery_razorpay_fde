@@ -68,7 +68,7 @@ class CallAttempt(BaseModel):
     notes: Optional[str] = None
     duration_ms: Optional[int] = None
     disconnection_reason: Optional[str] = None
-    call_cost: Optional[float] = None
+    call_cost_usd: Optional[float] = None
     call_analysis: Optional[str] = None
     raw_events: Optional[str] = None
 

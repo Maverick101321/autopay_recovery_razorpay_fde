@@ -104,7 +104,6 @@ def build_tools(public_base_url: str, tool_secret: str) -> list[dict[str, Any]]:
                         "type": "string",
                         "enum": [
                             "promised_to_pay",
-                            "paid_now",
                             "claims_paid",
                             "refused",
                             "wrong_person",
@@ -211,6 +210,9 @@ def build_agent_payload(
         },
         "webhook_url": f"{base_url}/webhooks/retell",
         "webhook_events": ["call_started", "call_ended", "call_analyzed"],
+        # Retell's create-agent/update-agent field accepts values in [0, 1];
+        # lower values make it harder for a caller to interrupt the disclosure.
+        "interruption_sensitivity": 0.5,
     }
 
 

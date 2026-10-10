@@ -21,8 +21,8 @@ python scripts/seed.py
 # Run unit and integration tests
 pytest -q
 
-# Start the development server
-uvicorn app.main:app --reload
+# Start the development server from the activated virtual environment
+python -m uvicorn app.main:app --reload
 ```
 
 ## Retell Setup
@@ -89,8 +89,15 @@ python scripts/dial.py --payment-id pay_001 --live
 ## Admin Endpoints
 Protected by the `x-tool-secret` header matching `TOOL_SHARED_SECRET`:
 - `GET /admin/state`: View all payment statuses and retry metadata.
-- `GET /admin/calls`: View call history, transcripts, costs, duration, and analysis.
+- `GET /admin/calls`: View call summaries, costs, duration, and analysis (raw events are excluded).
+- `GET /admin/calls/{retell_call_id}`: View a full call record, including sanitized raw event history.
 - `POST /admin/confirm_payment`: Confirm external payment clearance (sets status to `recovered`).
+
+## Evaluation
+
+Run the offline evaluation harness with `python scripts/run_eval.py`. It writes JSON and Markdown reports to `reports/` and exercises the policy matrix, tool behavior, scripted persona funnel, transcript checks, payload lint, and a cost estimate without network calls or phone calls.
+
+The policy, tools, and funnel sections are **SIMULATED** backend behavior using fictional customers and scripted personas; they are not measured recovery rates. Stored-call transcript checks are labelled **MEASURED** and use the existing database read-only.
 
 ## Assumptions
 - Real phone calls are placed exclusively to the allowlisted `DEMO_PHONE` to eliminate unintended dials during development and demo.

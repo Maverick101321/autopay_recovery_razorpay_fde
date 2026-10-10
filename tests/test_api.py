@@ -1,4 +1,5 @@
 import json
+import sqlite3
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -8,7 +9,7 @@ import pytest
 import httpx
 from fastapi.testclient import TestClient
 
-from app.db import get_db_connection
+from app.db import get_db_connection, init_db
 from app.main import app, get_db
 from app.utils import compute_retell_webhook_signature, normalize_failed_payment_id
 from scripts.seed import seed_database
@@ -212,14 +213,14 @@ def test_log_outcome_status_transitions(api_test_ctx, tool_headers):
     assert resp1.status_code == 200
     assert resp1.json() == {"result": "Outcome logged as promised_to_pay."}
 
-    # 2. paid_now -> status becomes 'recovered'
+    # 2. Agent-supplied paid_now is normalized to an unverified claim.
     resp2 = client.post(
         "/tools/log_outcome",
         headers=tool_headers,
         json={"failed_payment_id": "pay_002", "outcome": "paid_now", "notes": "Paid during call"},
     )
     assert resp2.status_code == 200
-    assert resp2.json() == {"result": "Outcome logged as paid_now."}
+    assert resp2.json() == {"result": "Outcome logged as claims_paid."}
 
     # 3. do_not_call -> status becomes 'do_not_call'
     resp3 = client.post(
@@ -252,7 +253,7 @@ def test_log_outcome_status_transitions(api_test_ctx, tool_headers):
         assert p1["retry_count"] == 0
 
         p2 = conn.execute("SELECT status, retry_count FROM failed_payments WHERE id = 'pay_002'").fetchone()
-        assert p2["status"] == "recovered"
+        assert p2["status"] == "promised"
         assert p2["retry_count"] == 0
 
         p3 = conn.execute("SELECT status, retry_count FROM failed_payments WHERE id = 'pay_003'").fetchone()
@@ -400,12 +401,12 @@ def test_tool_endpoints_id_tolerance(api_test_ctx, tool_headers):
         json={"args": {"failed_payment_id": "1", "outcome": "paid_now", "notes": "Paid"}},
     )
     assert resp_outcome.status_code == 200
-    assert resp_outcome.json() == {"result": "Outcome logged as paid_now."}
+    assert resp_outcome.json() == {"result": "Outcome logged as claims_paid."}
 
     conn = get_db_connection(db_file)
     try:
         p1 = conn.execute("SELECT status FROM failed_payments WHERE id = 'pay_001'").fetchone()
-        assert p1["status"] == "recovered"
+        assert p1["status"] == "promised"
     finally:
         conn.close()
 
@@ -648,6 +649,7 @@ def test_setup_retell_dry_run_payload_and_no_network_calls():
     log_outcome_tool = next(t for t in custom_tools if t["name"] == "log_outcome")
     outcome_enum = log_outcome_tool["parameters"]["properties"]["outcome"]["enum"]
     assert "claims_paid" in outcome_enum
+    assert "paid_now" not in outcome_enum
 
     # 2. Check URLs and headers
     for ct in custom_tools:
@@ -667,6 +669,7 @@ def test_setup_retell_dry_run_payload_and_no_network_calls():
     assert agent_en["language"] == "en-IN"
     assert agent_en["webhook_url"] == f"{base_url}/webhooks/retell"
     assert agent_en["webhook_events"] == ["call_started", "call_ended", "call_analyzed"]
+    assert agent_en["interruption_sensitivity"] == 0.5
 
     agent_hi = build_agent_payload(
         llm_id="llm_123",
@@ -995,13 +998,13 @@ def test_webhook_multi_event_upsert_and_replay_deduplication(api_test_ctx):
         assert rows2[0]["disconnection_reason"] == "user_hangup"
         assert "Your payment failed" in rows2[0]["transcript"]
 
-        # Event 3: call_analyzed with call_cost and call_analysis
+        # Event 3: call_analyzed with combined_cost in cents and call_analysis
         p3 = {
             "event": "call_analyzed",
             "call": {
                 "call_id": call_id,
                 "metadata": {"failed_payment_id": "pay_001"},
-                "call_cost": {"combined_cost": 0.045},
+                "call_cost": {"combined_cost": 4.5},
                 "call_analysis": {
                     "call_summary": "Customer verified identity and agreed to link",
                     "user_sentiment": "Positive",
@@ -1015,7 +1018,7 @@ def test_webhook_multi_event_upsert_and_replay_deduplication(api_test_ctx):
 
         rows3 = conn.execute("SELECT * FROM call_attempts WHERE retell_call_id = ?", (call_id,)).fetchall()
         assert len(rows3) == 1
-        assert rows3[0]["call_cost"] == 0.045
+        assert rows3[0]["call_cost_usd"] == 0.045
         assert "call_summary" in rows3[0]["call_analysis"]
         assert rows3[0]["duration_ms"] == 45000  # Preserved from call_ended
 
@@ -1060,3 +1063,141 @@ def test_webhook_multi_event_upsert_and_replay_deduplication(api_test_ctx):
     finally:
         conn.close()
 
+
+def test_init_db_migrates_old_call_attempts_schema_and_webhook_stores_transcript(tmp_path, monkeypatch):
+    """An existing pre-webhook DB gains its columns before a call_ended webhook arrives."""
+    db_file = str(tmp_path / "legacy.db")
+    legacy_conn = sqlite3.connect(db_file)
+    try:
+        legacy_conn.execute(
+            """
+            CREATE TABLE call_attempts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                failed_payment_id TEXT,
+                retell_call_id TEXT UNIQUE,
+                started_at TEXT NOT NULL,
+                ended_at TEXT,
+                outcome TEXT,
+                transcript TEXT,
+                notes TEXT
+            )
+            """
+        )
+        legacy_conn.commit()
+    finally:
+        legacy_conn.close()
+
+    init_db(db_file)
+    conn = get_db_connection(db_file)
+    try:
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(call_attempts)").fetchall()}
+        assert {"duration_ms", "disconnection_reason", "call_cost_usd", "call_analysis", "raw_events"} <= columns
+    finally:
+        conn.close()
+
+    monkeypatch.setenv("RETELL_API_KEY", TEST_API_KEY)
+    monkeypatch.setenv("REQUIRE_WEBHOOK_SIGNATURE", "true")
+
+    def override_get_db():
+        connection = get_db_connection(db_file)
+        try:
+            yield connection
+        finally:
+            connection.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        client = TestClient(app)
+        payload = {
+            "event": "call_ended",
+            "call": {"call_id": "legacy_call", "transcript": "Customer will review the payment link."},
+        }
+        raw_body = json.dumps(payload)
+        response = client.post(
+            "/webhooks/retell",
+            content=raw_body,
+            headers={"content-type": "application/json", "x-retell-signature": compute_retell_webhook_signature(raw_body, TEST_API_KEY)},
+        )
+        assert response.status_code == 200
+    finally:
+        app.dependency_overrides.clear()
+
+    conn = get_db_connection(db_file)
+    try:
+        row = conn.execute("SELECT transcript FROM call_attempts WHERE retell_call_id = 'legacy_call'").fetchone()
+        assert row["transcript"] == "Customer will review the payment link."
+    finally:
+        conn.close()
+
+
+def test_webhook_sanitizes_events_and_admin_list_excludes_them(api_test_ctx, tool_headers):
+    client, db_file = api_test_ctx
+    payload = {
+        "event": "call_ended",
+        "access_token": "top-level-token-secret",
+        "call": {
+            "call_id": "sanitized_call",
+            "transcript": "No secrets in this transcript.",
+            "ice_servers": [{"credential": "ice-credential-secret"}],
+            "nested": {"refresh_token": "nested-token-secret", "password": "nested-password-secret"},
+        },
+    }
+    raw_body = json.dumps(payload)
+    response = client.post(
+        "/webhooks/retell",
+        content=raw_body,
+        headers={"content-type": "application/json", "x-retell-signature": compute_retell_webhook_signature(raw_body, TEST_API_KEY)},
+    )
+    assert response.status_code == 200
+
+    conn = get_db_connection(db_file)
+    try:
+        stored_events = conn.execute(
+            "SELECT raw_events FROM call_attempts WHERE retell_call_id = 'sanitized_call'"
+        ).fetchone()["raw_events"]
+        assert "token" not in stored_events.lower()
+        assert "credential" not in stored_events.lower()
+        assert "password" not in stored_events.lower()
+    finally:
+        conn.close()
+
+    call_list = client.get("/admin/calls", headers=tool_headers)
+    assert call_list.status_code == 200
+    listed_record = next(item for item in call_list.json() if item["retell_call_id"] == "sanitized_call")
+    assert "raw_events" not in listed_record
+    assert "token" not in json.dumps(call_list.json()).lower()
+    assert "credential" not in json.dumps(call_list.json()).lower()
+
+    detail = client.get("/admin/calls/sanitized_call", headers=tool_headers)
+    assert detail.status_code == 200
+    assert "token" not in detail.json()["raw_events"].lower()
+    assert "credential" not in detail.json()["raw_events"].lower()
+
+
+def test_webhook_returns_200_when_storage_fails(monkeypatch, caplog):
+    """A persistence failure is logged but never asks Retell to retry indefinitely."""
+    monkeypatch.setenv("RETELL_API_KEY", TEST_API_KEY)
+    monkeypatch.setenv("REQUIRE_WEBHOOK_SIGNATURE", "true")
+
+    class FailingDb:
+        def execute(self, *_args, **_kwargs):
+            raise sqlite3.OperationalError("simulated storage failure")
+
+    def override_get_db():
+        yield FailingDb()
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        client = TestClient(app)
+        payload = {"event": "call_ended", "call": {"call_id": "failed_storage_call"}}
+        raw_body = json.dumps(payload)
+        response = client.post(
+            "/webhooks/retell",
+            content=raw_body,
+            headers={"content-type": "application/json", "x-retell-signature": compute_retell_webhook_signature(raw_body, TEST_API_KEY)},
+        )
+        assert response.status_code == 200
+        assert response.json() == {"status": "ok"}
+        assert "Failed to store Retell webhook event" in caplog.text
+    finally:
+        app.dependency_overrides.clear()

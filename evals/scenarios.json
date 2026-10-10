@@ -1,0 +1,16 @@
+{
+  "telephony_usd_per_minute": 0.15,
+  "telephony_note": "Fixed offline estimate for Retell Twilio-backed India outbound calls.",
+  "persona_mapping": {"pay_001":"cooperative_pays","pay_002":"cooperative_no_followthrough","pay_003":"refuses","pay_004":"claims_already_paid","pay_005":"wrong_person","pay_006":"call_back_later","pay_007":"do_not_call","pay_008":"dispute_angry","pay_009":"lookup_failure","pay_010":"cooperative_pays"},
+  "personas": {
+    "cooperative_pays":{"steps":["context","link","promised","confirm"],"status":"recovered","outcome":"recovered","link":true},
+    "cooperative_no_followthrough":{"steps":["context","link","promised"],"status":"promised","outcome":"promised_to_pay","link":true},
+    "claims_already_paid":{"steps":["claims"],"status":"promised","outcome":"claims_paid"},
+    "refuses":{"steps":["refused"],"status":"pending","outcome":"refused"},
+    "wrong_person":{"steps":["wrong_person"],"status":"pending","outcome":"wrong_person"},
+    "call_back_later":{"steps":["retry","call_back_later"],"status":"pending","outcome":"call_back_later"},
+    "do_not_call":{"steps":["do_not_call"],"status":"do_not_call","outcome":"do_not_call"},
+    "dispute_angry":{"steps":["escalate","dispute"],"status":"escalated","outcome":"dispute"},
+    "lookup_failure":{"steps":["lookup_failure","escalate","call_back_later"],"status":"escalated","outcome":"call_back_later"}
+  }
+}
