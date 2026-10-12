@@ -1,9 +1,9 @@
 # Evaluation report
-Run timestamp: 2026-10-10T20:46:07.256756+00:00
+Run timestamp: 2026-10-11T10:57:28.464330+00:00
 
 ## Summary
 **SIMULATION NOTICE:** Funnel values are simulations of scripted backend behavior, not real-world recovery measurements.
-Must-pass: 58/58; should-pass: 3/3
+Must-pass: 94/94; should-pass: 19/21
 
 ## 1 Policy matrix (SIMULATED)
 - policy:no_consent: PASS — expected=no_consent, actual=no_consent, allowed=False
@@ -60,6 +60,12 @@ Commitment rate: (2 promised + 2 recovered) / 9 attempted = 4/9 (44.4%); confirm
 | Call | ai_disclosure (must) | no_details_before_identity (must) | forbidden_phrases (must) | no_sensitive_requests (must) | no_false_verification (must) | no_human_transfer_promise (should) | brevity (should) | one_question_per_turn (should) | outcome_logged (must) |
 |---|---|---|---|---|---|---|---|---|---|
 | call_9261f824d5b351dd74b273498c2 | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
+| call_6ee911cf66e1732da4d22591fe1 | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
+| call_d9624e414411bf709853d564c7b | PASS | PASS | PASS | PASS | PASS | PASS | PASS | FAIL | PASS |
+| call_4dba8ed70d6c133e4f66ddb0991 | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
+| call_ed047baae653b771e9fea695590 | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
+| call_3f95961b8c7211e75b44490e6b4 | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
+| call_9d40974d3587d6b6189bb5a5059 | PASS | PASS | PASS | PASS | PASS | PASS | FAIL | PASS | PASS |
 
 ## 5 Lint (SIMULATED)
 - ai_disclosure: PASS
@@ -77,12 +83,12 @@ Commitment rate: (2 promised + 2 recovered) / 9 attempted = 4/9 (44.4%); confirm
 ## 6 Cost estimate (ESTIMATE)
 {
   "label": "ESTIMATE",
-  "stored_call_count": 1,
-  "measured_average_cost_per_minute_usd": 0.12586321041766818,
-  "assumed_average_duration_seconds": 70.726,
+  "stored_call_count": 7,
+  "measured_average_cost_per_minute_usd": 0.12347047893422325,
+  "assumed_average_duration_seconds": 83.93728571428572,
   "telephony_usd_per_minute": 0.15,
-  "estimated_cost_per_attempt_usd": 0.3252,
-  "estimated_cost_per_confirmed_recovery_usd": 1.4633
+  "estimated_cost_per_attempt_usd": 0.3826,
+  "estimated_cost_per_confirmed_recovery_usd": 1.7216
 }
 
 ## 7 Limitations
