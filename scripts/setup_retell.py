@@ -64,8 +64,12 @@ def build_tools(public_base_url: str, tool_secret: str) -> list[dict[str, Any]]:
                         "type": "string",
                         "description": "The unique identifier of the failed payment record.",
                     }
+                    ,"customer_first_name": {
+                        "type": "string",
+                        "description": "The verified customer first name, passed as {{customer_first_name}}.",
+                    }
                 },
-                "required": ["failed_payment_id"],
+                "required": ["failed_payment_id", "customer_first_name"],
             },
         },
         {

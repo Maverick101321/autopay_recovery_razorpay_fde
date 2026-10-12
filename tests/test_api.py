@@ -96,7 +96,7 @@ def test_get_payment_context_voice_friendly_phrases_and_format(api_test_ctx, too
     assert resp1.status_code == 200
     res1 = resp1.json()["result"]
     expected1 = (
-        "The customer is Aarav. A 799 rupee payment to StreamFlix for the Premium Ultra HD plan "
+        "A 799 rupee payment for the Premium Ultra HD plan "
         "failed because the bank reported that the account balance was too low at that time. This is attempt number 1."
     )
     assert res1 == expected1
@@ -112,7 +112,7 @@ def test_get_payment_context_voice_friendly_phrases_and_format(api_test_ctx, too
     assert resp2.status_code == 200
     res2 = resp2.json()["result"]
     expected2 = (
-        "The customer is Priya. A 2499 rupee payment to FitPulse Gym for the Monthly All-Access plan "
+        "A 2499 rupee payment for the Monthly All-Access plan "
         "failed because the card on file has expired. This is attempt number 1."
     )
     assert res2 == expected2
@@ -127,7 +127,7 @@ def test_get_payment_context_voice_friendly_phrases_and_format(api_test_ctx, too
     assert resp3.status_code == 200
     res3 = resp3.json()["result"]
     expected3 = (
-        "The customer is Vikram. A 999 rupee payment to TechFin Newsletter for the Annual Supporter plan "
+        "A 999 rupee payment for the Annual Supporter plan "
         "failed because the verification code step was not completed. This is attempt number 3."
     )
     assert res3 == expected3
@@ -144,6 +144,17 @@ def test_get_payment_context_unknown_id(api_test_ctx, tool_headers):
     )
     assert resp.status_code == 200
     assert resp.json() == {"result": "I couldn't find that account"}
+
+
+def test_get_payment_context_rejects_mismatched_customer_first_name(api_test_ctx, tool_headers, caplog):
+    client, _ = api_test_ctx
+    response = client.post(
+        "/tools/get_payment_context", headers=tool_headers,
+        json={"failed_payment_id": "pay_001", "customer_first_name": "Wrong"},
+    )
+    assert response.status_code == 200
+    assert response.json()["result"] == "This record does not match the call details. Do not discuss it. Apologize, call escalate_to_human with reason record mismatch, then end the call."
+    assert "Aarav" not in caplog.text
 
 
 def test_create_payment_link_and_idempotency(api_test_ctx, tool_headers):
@@ -367,7 +378,7 @@ def test_tool_endpoints_id_tolerance(api_test_ctx, tool_headers):
         json={"args": {"failed_payment_id": "1"}},
     )
     assert resp1.status_code == 200
-    assert "The customer is Aarav." in resp1.json()["result"]
+    assert "799 rupee payment" in resp1.json()["result"]
 
     resp2 = client.post(
         "/tools/get_payment_context",
@@ -375,7 +386,7 @@ def test_tool_endpoints_id_tolerance(api_test_ctx, tool_headers):
         json={"failed_payment_id": "001"},
     )
     assert resp2.status_code == 200
-    assert "The customer is Aarav." in resp2.json()["result"]
+    assert "799 rupee payment" in resp2.json()["result"]
 
     resp3 = client.post(
         "/tools/get_payment_context",
@@ -383,7 +394,7 @@ def test_tool_endpoints_id_tolerance(api_test_ctx, tool_headers):
         json={"failed_payment_id": " PAY_002 "},
     )
     assert resp3.status_code == 200
-    assert "The customer is Priya." in resp3.json()["result"]
+    assert "2499 rupee payment" in resp3.json()["result"]
 
     # 2. create_payment_link with '1'
     resp_link = client.post(
@@ -650,6 +661,9 @@ def test_setup_retell_dry_run_payload_and_no_network_calls():
     outcome_enum = log_outcome_tool["parameters"]["properties"]["outcome"]["enum"]
     assert "claims_paid" in outcome_enum
     assert "paid_now" not in outcome_enum
+    context_tool = next(t for t in custom_tools if t["name"] == "get_payment_context")
+    assert "customer_first_name" in context_tool["parameters"]["properties"]
+    assert "customer_first_name" in context_tool["parameters"]["required"]
 
     # 2. Check URLs and headers
     for ct in custom_tools:

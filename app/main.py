@@ -86,7 +86,7 @@ async def get_payment_context(request: Request, db: sqlite3.Connection = Depends
     except Exception:
         body = {}
     args = extract_args(body)
-    logger.info("get_payment_context called with args: %s", args)
+    logger.info("get_payment_context called")
 
     failed_payment_id = normalize_failed_payment_id(args.get("failed_payment_id"))
     if not failed_payment_id:
@@ -101,6 +101,10 @@ async def get_payment_context(request: Request, db: sqlite3.Connection = Depends
         return {"result": "I couldn't find that account"}
 
     first_name = customer["name"].split()[0]
+    supplied_first_name = str(args.get("customer_first_name") or "").strip()
+    if supplied_first_name and supplied_first_name.casefold() != first_name.casefold():
+        logger.warning("Payment context record mismatch")
+        return {"result": "This record does not match the call details. Do not discuss it. Apologize, call escalate_to_human with reason record mismatch, then end the call."}
     merchant = payment["merchant_name"]
     plan = payment["plan_name"]
     amount = payment["amount_inr"]
@@ -108,10 +112,7 @@ async def get_payment_context(request: Request, db: sqlite3.Connection = Depends
     phrase = FAILURE_REASON_PHRASES.get(raw_reason, str(raw_reason).replace("_", " "))
     retries = payment["retry_count"]
 
-    result = (
-        f"The customer is {first_name}. A {amount} rupee payment to {merchant} "
-        f"for the {plan} plan failed because {phrase}. This is attempt number {retries + 1}."
-    )
+    result = f"A {amount} rupee payment for the {plan} plan failed because {phrase}. This is attempt number {retries + 1}."
     return {"result": result}
 
 

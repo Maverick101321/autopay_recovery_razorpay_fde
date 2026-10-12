@@ -45,7 +45,7 @@ def test_all_payment_context_outputs_are_safe():
     from scripts.run_eval import main as _main
     # The end-to-end run exercises all ten; this unit-level assertion preserves the
     # checker contract independently of FastAPI setup.
-    assert check_payment_context("The customer is Ada. A 799 rupee payment to Acme failed because plain language.", "Ada", 799, "+919999999999", "Lovelace", "pay_001")[0]["passed"]
+    assert check_payment_context("A 799 rupee payment failed because plain language.", "Ada", "Acme", 799, "+919999999999", "Lovelace", "pay_001")[0]["passed"]
 
 
 def test_cost_metrics_uses_usd_per_minute(tmp_path):

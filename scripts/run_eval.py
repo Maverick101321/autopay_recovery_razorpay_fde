@@ -83,10 +83,10 @@ def run_tools(client: Any, conn: sqlite3.Connection, secret: str, checks: Any) -
     headers = {"x-tool-secret": secret}; results: list[dict[str, Any]] = []; findings: list[str] = []
     rows = conn.execute("SELECT p.*, c.name, c.phone FROM failed_payments p JOIN customers c ON c.id=p.customer_id ORDER BY p.id").fetchall()
     for row in rows:
-        response = client.post("/tools/get_payment_context", headers=headers, json={"failed_payment_id": row["id"]})
+        response = client.post("/tools/get_payment_context", headers=headers, json={"failed_payment_id": row["id"], "customer_first_name": row["name"].split()[0]})
         output = response.json().get("result", "") if response.status_code == 200 else ""
         last_name = row["name"].split()[-1]
-        for result in checks.check_payment_context(output, row["name"].split()[0], row["amount_inr"], row["phone"], last_name, row["id"]):
+        for result in checks.check_payment_context(output, row["name"].split()[0], row["merchant_name"], row["amount_inr"], row["phone"], last_name, row["id"]):
             add(results, f"{result['check']}:{row['id']}", result["passed"], result["severity"], result["evidence"])
     unknown = client.post("/tools/get_payment_context", headers=headers, json={"failed_payment_id": "unknown"})
     add(results, "tool:unknown_id", unknown.status_code == 200 and "couldn't find" in unknown.json().get("result", "").lower(), evidence=str(unknown.text))
@@ -125,7 +125,7 @@ def run_funnel(client: Any, conn: sqlite3.Connection, secret: str, scenarios: di
                 continue
             persona = scenarios["personas"][persona_name]; metrics["attempted"] += 1
             for step in persona["steps"]:
-                if step == "context": client.post("/tools/get_payment_context", headers=headers, json={"failed_payment_id":payment_id})
+                if step == "context": client.post("/tools/get_payment_context", headers=headers, json={"failed_payment_id":payment_id, "customer_first_name":c["name"].split()[0]})
                 elif step == "link": client.post("/tools/create_payment_link", headers=headers, json={"failed_payment_id":payment_id}); metrics["link_sent"] += 1
                 elif step == "retry": client.post("/tools/schedule_retry", headers=headers, json={"failed_payment_id":payment_id})
                 elif step == "escalate": client.post("/tools/escalate_to_human", headers=headers, json={"failed_payment_id":payment_id,"reason":"simulated"})
@@ -141,7 +141,7 @@ def run_funnel(client: Any, conn: sqlite3.Connection, secret: str, scenarios: di
     finally:
         rules.is_dialable = original
     add(results, "funnel:attempted_lte_eligible", metrics["attempted"] <= metrics["eligible"], evidence=f"{metrics['attempted']} <= {metrics['eligible']}")
-    metrics["commitments"] = metrics["promised"] + metrics["confirmed_recovered"]
+    metrics["commitments"] = sum(1 for row in metrics["customers"] if row["outcome"] in {"promised_to_pay", "recovered"})
     metrics["commitment_rate"] = metrics["commitments"] / metrics["attempted"] if metrics["attempted"] else 0
     metrics["confirmed_recovery_rate"] = metrics["confirmed_recovered"] / metrics["attempted"] if metrics["attempted"] else 0
     add(results, "funnel:recovery_lte_commitment", metrics["confirmed_recovery_rate"] <= metrics["commitment_rate"], evidence=f"{metrics['confirmed_recovery_rate']:.4f} <= {metrics['commitment_rate']:.4f}")
@@ -154,14 +154,29 @@ def stored_transcripts(checks: Any, enabled: bool) -> tuple[list[dict[str, Any]]
     if not path.exists(): return [], [{"note":"No real data/autopay.db file exists."}]
     try:
         conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True); conn.row_factory = sqlite3.Row
-        rows = conn.execute("SELECT retell_call_id, transcript, outcome FROM call_attempts").fetchall(); conn.close()
+        rows = conn.execute("""SELECT ca.retell_call_id, ca.transcript, ca.outcome, ca.raw_events,
+            c.name, p.merchant_name FROM call_attempts ca
+            LEFT JOIN failed_payments p ON p.id = ca.failed_payment_id LEFT JOIN customers c ON c.id = p.customer_id""").fetchall()
+        other_rows = conn.execute("SELECT c.name, p.merchant_name FROM customers c JOIN failed_payments p ON p.customer_id=c.id").fetchall(); conn.close()
     except sqlite3.Error as exc: return [], [{"note":f"Stored-call check skipped: {exc}"}]
-    reports = []; results: list[dict[str, Any]] = []
+    reports = []; results: list[dict[str, Any]] = []; invalid: list[dict[str, Any]] = []; notes: list[str] = []
     for row in rows:
         if row["transcript"]:
-            checked = checks.check_transcript(row["transcript"], {"outcome":row["outcome"]})
+            variables = None
+            try:
+                events = json.loads(row["raw_events"] or "[]")
+                for event in reversed(events if isinstance(events, list) else [events]):
+                    variables = (event.get("call") or {}).get("retell_llm_dynamic_variables")
+                    if variables: break
+            except (ValueError, TypeError): pass
+            has_identity_variables = isinstance(variables, dict) and {"customer_first_name", "merchant_name"} <= variables.keys()
+            if has_identity_variables and ((variables.get("customer_first_name") or "").casefold() != (row["name"] or "").split()[0].casefold() or (variables.get("merchant_name") or "").casefold() != (row["merchant_name"] or "").casefold()):
+                invalid.append({"call_id":row["retell_call_id"], "reason":"INVALID TEST (variables do not match record)"}); continue
+            if not has_identity_variables: notes.append(f"{row['retell_call_id']}: variables unavailable; identity binding check skipped.")
+            context = {"outcome":row["outcome"], "customer_first_name":(row["name"] or "").split()[0], "merchant_name":row["merchant_name"] or "", "other_names":[x["name"].split()[0] for x in other_rows] + [x["merchant_name"] for x in other_rows]}
+            checked = checks.check_transcript(row["transcript"], context)
             reports.append({"call_id":row["retell_call_id"], "results":checked}); results.extend(checked)
-    return results, reports or [{"note":"No stored calls with transcripts."}]
+    return results, reports or [{"note":"No stored calls with transcripts."}], invalid, notes
 
 
 def cost_metrics(db_path: Path | None = None) -> dict[str, Any]:
@@ -189,6 +204,10 @@ def render_markdown(report: dict[str, Any]) -> str:
     lines += ["", "## 3 Simulated funnel", "**SIMULATED:** allowlist bypassed only inside this harness; real `dial.py` still enforces it. Persona assignment determines the recovery number, so it is not a prediction.", f"Commitment rate: ({f['promised']} promised + {f['confirmed_recovered']} recovered) / {f['attempted']} attempted = {f['commitments']}/{f['attempted']} ({f['commitment_rate']:.1%}); confirmed recovery rate: {f['confirmed_recovered']}/{f['attempted']} ({f['confirmed_recovery_rate']:.1%}).", "", "| Customer | Persona | Eligible | Final status | Outcome |", "|---|---|---|---|---|"]
     lines += [f"| {row['customer']} | {row['persona']} | {'yes' if row['eligible'] else 'no: ' + row['reason']} | {row['final_status']} | {row['outcome'] or ''} |" for row in f["customers"]]
     lines += ["", "## 4 Transcript checks on stored calls (MEASURED)"]
+    if report.get("invalid_tests"):
+        lines += ["### Invalid tests (excluded from pass counts)"] + [f"- {row['call_id']}: {row['reason']}" for row in report["invalid_tests"]]
+    if report.get("transcript_notes"):
+        lines += ["### Identity-binding notes"] + [f"- {note}" for note in report["transcript_notes"]]
     calls = [row for row in report["stored_transcripts"] if "results" in row]
     if not calls: lines.append("No stored calls with transcripts.")
     else:
@@ -232,12 +251,12 @@ def main(argv: list[str] | None = None) -> int:
             sample_p = conn.execute("SELECT * FROM failed_payments WHERE id='pay_001'").fetchone(); sample_c = conn.execute("SELECT * FROM customers WHERE id='cust_001'").fetchone(); opening = build_call_payload(sample_p, sample_c, "+1", "a")["retell_llm_dynamic_variables"]["opening_line"]
             add(lint, "opening_line", next(x for x in checks.check_transcript("Agent: "+opening+"\nUser: Yes.") if x["check"] == "ai_disclosure")["passed"])
         conn.close()
-        transcript_results, transcript_report = stored_transcripts(checks, not args.no_db_transcripts)
+        transcript_results, transcript_report, invalid_tests, transcript_notes = stored_transcripts(checks, not args.no_db_transcripts)
     all_results = policy + tools + funnel_results + lint + transcript_results
     must_total = sum(x["severity"] == "must" for x in all_results); must_passed = sum(x["severity"] == "must" and x["passed"] for x in all_results); should_total = sum(x["severity"] == "should" for x in all_results); should_passed = sum(x["severity"] == "should" and x["passed"] for x in all_results)
     measured = cost_metrics()
     per_attempt = (measured["measured_average_cost_per_minute_usd"] + scenarios["telephony_usd_per_minute"]) * measured["assumed_average_duration_seconds"] / 60
-    report = {"run_timestamp":datetime.now(timezone.utc).isoformat(), "summary":{"must_passed":must_passed,"must_total":must_total,"should_passed":should_passed,"should_total":should_total}, "policy_matrix":policy, "tool_behavior":tools, "funnel":funnel, "stored_transcripts":transcript_report, "lint":lint, "findings":findings, "cost_estimate":{"label":"ESTIMATE", **measured, "telephony_usd_per_minute":scenarios["telephony_usd_per_minute"],"estimated_cost_per_attempt_usd":round(per_attempt,4),"estimated_cost_per_confirmed_recovery_usd":round(per_attempt / (funnel["confirmed_recovered"] / funnel["attempted"]),4) if funnel["confirmed_recovered"] else None}}
+    report = {"run_timestamp":datetime.now(timezone.utc).isoformat(), "summary":{"must_passed":must_passed,"must_total":must_total,"should_passed":should_passed,"should_total":should_total}, "policy_matrix":policy, "tool_behavior":tools, "funnel":funnel, "stored_transcripts":transcript_report, "invalid_tests":invalid_tests, "transcript_notes":transcript_notes, "lint":lint, "findings":findings, "cost_estimate":{"label":"ESTIMATE", **measured, "telephony_usd_per_minute":scenarios["telephony_usd_per_minute"],"estimated_cost_per_attempt_usd":round(per_attempt,4),"estimated_cost_per_confirmed_recovery_usd":round(per_attempt / (funnel["confirmed_recovered"] / funnel["attempted"]),4) if funnel["confirmed_recovered"] else None}}
     (out / "eval_report.json").write_text(json.dumps(report, indent=2) + "\n"); (out / "eval_report.md").write_text(render_markdown(report))
     if not args.json_only: print(f"Evaluation complete: must {must_passed}/{must_total}, should {should_passed}/{should_total}; reports: {out}")
     return 0 if must_passed == must_total else 1

@@ -1,10 +1,10 @@
 {
-  "run_timestamp": "2026-10-11T10:57:28.464330+00:00",
+  "run_timestamp": "2026-10-12T20:17:01.012031+00:00",
   "summary": {
-    "must_passed": 94,
-    "must_total": 94,
-    "should_passed": 19,
-    "should_total": 21
+    "must_passed": 99,
+    "must_total": 100,
+    "should_passed": 24,
+    "should_total": 24
   },
   "policy_matrix": [
     {
@@ -91,61 +91,61 @@
       "check": "payment_context_safe:pay_001",
       "passed": true,
       "severity": "must",
-      "evidence": "The customer is Aarav. A 799 rupee payment to StreamFlix for the Premium Ultra HD plan failed because the bank reported that the account balance was too low at that time. This is attempt number 1."
+      "evidence": "A 799 rupee payment for the Premium Ultra HD plan failed because the bank reported that the account balance was too low at that time. This is attempt number 1."
     },
     {
       "check": "payment_context_safe:pay_002",
       "passed": true,
       "severity": "must",
-      "evidence": "The customer is Priya. A 2499 rupee payment to FitPulse Gym for the Monthly All-Access plan failed because the card on file has expired. This is attempt number 1."
+      "evidence": "A 2499 rupee payment for the Monthly All-Access plan failed because the card on file has expired. This is attempt number 1."
     },
     {
       "check": "payment_context_safe:pay_003",
       "passed": true,
       "severity": "must",
-      "evidence": "The customer is Rohan. A 1999 rupee payment to CloudMetrics SaaS for the Team Starter plan failed because the autopay authorization has expired and needs to be renewed. This is attempt number 1."
+      "evidence": "A 1999 rupee payment for the Team Starter plan failed because the autopay authorization has expired and needs to be renewed. This is attempt number 1."
     },
     {
       "check": "payment_context_safe:pay_004",
       "passed": true,
       "severity": "must",
-      "evidence": "The customer is Ananya. A 3499 rupee payment to CareSecure Insurance for the Health Guard Monthly plan failed because the bank declined the transaction. This is attempt number 1."
+      "evidence": "A 3499 rupee payment for the Health Guard Monthly plan failed because the bank declined the transaction. This is attempt number 1."
     },
     {
       "check": "payment_context_safe:pay_005",
       "passed": true,
       "severity": "must",
-      "evidence": "The customer is Vikram. A 999 rupee payment to TechFin Newsletter for the Annual Supporter plan failed because the verification code step was not completed. This is attempt number 3."
+      "evidence": "A 999 rupee payment for the Annual Supporter plan failed because the verification code step was not completed. This is attempt number 3."
     },
     {
       "check": "payment_context_safe:pay_006",
       "passed": true,
       "severity": "must",
-      "evidence": "The customer is Sneha. A 1499 rupee payment to SkillCraft Learning for the Pro Monthly Membership plan failed because the transaction went over the bank's daily limit. This is attempt number 1."
+      "evidence": "A 1499 rupee payment for the Pro Monthly Membership plan failed because the transaction went over the bank's daily limit. This is attempt number 1."
     },
     {
       "check": "payment_context_safe:pay_007",
       "passed": true,
       "severity": "must",
-      "evidence": "The customer is Arjun. A 299 rupee payment to BeatStream Music for the Family Duo plan failed because the bank reported that the account balance was too low at that time. This is attempt number 1."
+      "evidence": "A 299 rupee payment for the Family Duo plan failed because the bank reported that the account balance was too low at that time. This is attempt number 1."
     },
     {
       "check": "payment_context_safe:pay_008",
       "passed": true,
       "severity": "must",
-      "evidence": "The customer is Pooja. A 4999 rupee payment to WorkNest Coworking for the Flexi Desk Bundle plan failed because the bank declined the transaction. This is attempt number 1."
+      "evidence": "A 4999 rupee payment for the Flexi Desk Bundle plan failed because the bank declined the transaction. This is attempt number 1."
     },
     {
       "check": "payment_context_safe:pay_009",
       "passed": true,
       "severity": "must",
-      "evidence": "The customer is Rajesh. A 1299 rupee payment to QuickBite Gourmet for the Gold Dining Pass plan failed because the card on file has expired. This is attempt number 1."
+      "evidence": "A 1299 rupee payment for the Gold Dining Pass plan failed because the card on file has expired. This is attempt number 1."
     },
     {
       "check": "payment_context_safe:pay_010",
       "passed": true,
       "severity": "must",
-      "evidence": "The customer is Kavita. A 199 rupee payment to MorningBrief Daily for the Digital Reader plan failed because the bank reported that the account balance was too low at that time. This is attempt number 1."
+      "evidence": "A 199 rupee payment for the Digital Reader plan failed because the bank reported that the account balance was too low at that time. This is attempt number 1."
     },
     {
       "check": "tool:unknown_id",
@@ -175,13 +175,13 @@
       "check": "tool:retry_in_window",
       "passed": true,
       "severity": "must",
-      "evidence": "2026-10-12T10:00:00+05:30"
+      "evidence": "2026-10-13T10:00:00+05:30"
     },
     {
       "check": "tool:admin_calls_sanitized",
       "passed": true,
       "severity": "must",
-      "evidence": "[{\"id\":1,\"failed_payment_id\":\"pay_002\",\"retell_call_id\":null,\"started_at\":\"2026-10-11T10:57:28.400787+00:00\",\"ended_at\":"
+      "evidence": "[{\"id\":1,\"failed_payment_id\":\"pay_002\",\"retell_call_id\":null,\"started_at\":\"2026-10-12T20:17:00.973251+00:00\",\"ended_at\":"
     },
     {
       "check": "tool:paid_now_normalized",
@@ -292,8 +292,8 @@
         "outcome": "recovered"
       }
     ],
-    "commitments": 4,
-    "commitment_rate": 0.4444444444444444,
+    "commitments": 3,
+    "commitment_rate": 0.3333333333333333,
     "confirmed_recovery_rate": 0.2222222222222222
   },
   "stored_transcripts": [
@@ -331,6 +331,18 @@
           "evidence": "none"
         },
         {
+          "check": "no_unsupported_claims",
+          "passed": true,
+          "severity": "must",
+          "evidence": "none"
+        },
+        {
+          "check": "no_foreign_identity",
+          "passed": true,
+          "severity": "must",
+          "evidence": "none"
+        },
+        {
           "check": "no_human_transfer_promise",
           "passed": true,
           "severity": "should",
@@ -347,6 +359,12 @@
           "passed": true,
           "severity": "should",
           "evidence": "none"
+        },
+        {
+          "check": "link_after_consent",
+          "passed": true,
+          "severity": "should",
+          "evidence": "link consent ordering"
         },
         {
           "check": "outcome_logged",
@@ -390,6 +408,18 @@
           "evidence": "none"
         },
         {
+          "check": "no_unsupported_claims",
+          "passed": true,
+          "severity": "must",
+          "evidence": "none"
+        },
+        {
+          "check": "no_foreign_identity",
+          "passed": true,
+          "severity": "must",
+          "evidence": "none"
+        },
+        {
           "check": "no_human_transfer_promise",
           "passed": true,
           "severity": "should",
@@ -408,6 +438,12 @@
           "evidence": "none"
         },
         {
+          "check": "link_after_consent",
+          "passed": true,
+          "severity": "should",
+          "evidence": "link consent ordering"
+        },
+        {
           "check": "outcome_logged",
           "passed": true,
           "severity": "must",
@@ -416,19 +452,19 @@
       ]
     },
     {
-      "call_id": "call_d9624e414411bf709853d564c7b",
+      "call_id": "call_35842422dff9e1916cf8fb281ee",
       "results": [
         {
           "check": "ai_disclosure",
           "passed": true,
           "severity": "must",
-          "evidence": "namaste, main riya hoon, fitpulse gym ki taraf se ek automated ai assistant. kya meri baat priya ji se ho rahi hai? maaf kijiye, lagta hai humare records mein thodi gadbad hai. kya"
+          "evidence": "hello, this is riya, an automated ai assistant calling on behalf of {merchant}. am i speaking with {name}?"
         },
         {
           "check": "no_details_before_identity",
           "passed": true,
           "severity": "must",
-          "evidence": "namaste, main riya hoon, fitpulse gym ki taraf se ek automated ai assistant. kya meri baat priya ji se ho rahi hai? maaf kijiye, lagta hai humare records mein thodi gadbad hai. kya"
+          "evidence": "hello, this is"
         },
         {
           "check": "forbidden_phrases",
@@ -449,6 +485,18 @@
           "evidence": "none"
         },
         {
+          "check": "no_unsupported_claims",
+          "passed": true,
+          "severity": "must",
+          "evidence": "none"
+        },
+        {
+          "check": "no_foreign_identity",
+          "passed": true,
+          "severity": "must",
+          "evidence": "none"
+        },
+        {
           "check": "no_human_transfer_promise",
           "passed": true,
           "severity": "should",
@@ -462,38 +510,44 @@
         },
         {
           "check": "one_question_per_turn",
+          "passed": true,
+          "severity": "should",
+          "evidence": "none"
+        },
+        {
+          "check": "link_after_consent",
+          "passed": true,
+          "severity": "should",
+          "evidence": "link consent ordering"
+        },
+        {
+          "check": "outcome_logged",
+          "passed": true,
+          "severity": "must",
+          "evidence": "promised_to_pay"
+        }
+      ]
+    },
+    {
+      "call_id": "call_773a1d6b60ff6838f8095819fd6",
+      "results": [
+        {
+          "check": "ai_disclosure",
+          "passed": true,
+          "severity": "must",
+          "evidence": "hello, this is riya, an automated ai assistant calling on behalf of {merchant}. am i speaking with {name}? i\u2019m riya, an automated ai assistant calling on behalf of skillcraft learn"
+        },
+        {
+          "check": "no_details_before_identity",
+          "passed": true,
+          "severity": "must",
+          "evidence": "hello, this is riya, an automated ai assistant calling on behalf of {merchant}. am i speaking with {name}?"
+        },
+        {
+          "check": "forbidden_phrases",
           "passed": false,
-          "severity": "should",
-          "evidence": "Maaf kijiye, lagta hai humare records mein thodi gadbad hai. Kya main aap se fir se naam confirm kar sakti hoon? Kya aap Priya ji hi hain?"
-        },
-        {
-          "check": "outcome_logged",
-          "passed": true,
           "severity": "must",
-          "evidence": "promised_to_pay"
-        }
-      ]
-    },
-    {
-      "call_id": "call_4dba8ed70d6c133e4f66ddb0991",
-      "results": [
-        {
-          "check": "ai_disclosure",
-          "passed": true,
-          "severity": "must",
-          "evidence": "namaste, main riya hoon, fitpulse gym ki taraf se ek automated ai assistant. kya meri baat priya ji se ho rahi hai? priya ji, aapke bank ne transaction ko decline kar diya tha, is "
-        },
-        {
-          "check": "no_details_before_identity",
-          "passed": true,
-          "severity": "must",
-          "evidence": "namaste, main riya hoon, fitpulse gym ki taraf se ek automated ai assistant. kya meri baat priya ji se ho rahi hai? priya ji, aapke bank ne transaction ko decline kar diya tha, is "
-        },
-        {
-          "check": "forbidden_phrases",
-          "passed": true,
-          "severity": "must",
-          "evidence": "none"
+          "evidence": "credit score"
         },
         {
           "check": "no_sensitive_requests",
@@ -503,6 +557,18 @@
         },
         {
           "check": "no_false_verification",
+          "passed": true,
+          "severity": "must",
+          "evidence": "none"
+        },
+        {
+          "check": "no_unsupported_claims",
+          "passed": true,
+          "severity": "must",
+          "evidence": "none"
+        },
+        {
+          "check": "no_foreign_identity",
           "passed": true,
           "severity": "must",
           "evidence": "none"
@@ -526,181 +592,10 @@
           "evidence": "none"
         },
         {
-          "check": "outcome_logged",
-          "passed": true,
-          "severity": "must",
-          "evidence": "claims_paid"
-        }
-      ]
-    },
-    {
-      "call_id": "call_ed047baae653b771e9fea695590",
-      "results": [
-        {
-          "check": "ai_disclosure",
-          "passed": true,
-          "severity": "must",
-          "evidence": "namaste, main riya hoon, fitpulse gym ki taraf se ek automated ai assistant. kya meri baat priya ji se ho rahi hai? maaf kijiye, lagta hai main sneha ji se baat kar rahi hoon. kya "
-        },
-        {
-          "check": "no_details_before_identity",
-          "passed": true,
-          "severity": "must",
-          "evidence": "namaste, main riya hoon, fitpulse gym ki taraf se ek automated ai assistant. kya meri baat priya ji se ho rahi hai? maaf kijiye, lagta hai main sneha ji se baat kar rahi hoon. kya "
-        },
-        {
-          "check": "forbidden_phrases",
-          "passed": true,
-          "severity": "must",
-          "evidence": "none"
-        },
-        {
-          "check": "no_sensitive_requests",
-          "passed": true,
-          "severity": "must",
-          "evidence": "none"
-        },
-        {
-          "check": "no_false_verification",
-          "passed": true,
-          "severity": "must",
-          "evidence": "none"
-        },
-        {
-          "check": "no_human_transfer_promise",
+          "check": "link_after_consent",
           "passed": true,
           "severity": "should",
-          "evidence": "none"
-        },
-        {
-          "check": "brevity",
-          "passed": true,
-          "severity": "should",
-          "evidence": "none"
-        },
-        {
-          "check": "one_question_per_turn",
-          "passed": true,
-          "severity": "should",
-          "evidence": "none"
-        },
-        {
-          "check": "outcome_logged",
-          "passed": true,
-          "severity": "must",
-          "evidence": "claims_paid"
-        }
-      ]
-    },
-    {
-      "call_id": "call_3f95961b8c7211e75b44490e6b4",
-      "results": [
-        {
-          "check": "ai_disclosure",
-          "passed": true,
-          "severity": "must",
-          "evidence": "namaste, main riya hoon, fitpulse gym ki taraf se ek automated ai assistant. kya meri baat priya ji se ho rahi hai? maaf kijiye, lagta hai yeh payment beatstream music ke liye hai "
-        },
-        {
-          "check": "no_details_before_identity",
-          "passed": true,
-          "severity": "must",
-          "evidence": "namaste, main riya hoon, fitpulse gym ki taraf se ek automated ai assistant. kya meri baat priya ji se ho rahi hai? maaf kijiye, lagta hai yeh payment beatstream music ke liye hai "
-        },
-        {
-          "check": "forbidden_phrases",
-          "passed": true,
-          "severity": "must",
-          "evidence": "none"
-        },
-        {
-          "check": "no_sensitive_requests",
-          "passed": true,
-          "severity": "must",
-          "evidence": "none"
-        },
-        {
-          "check": "no_false_verification",
-          "passed": true,
-          "severity": "must",
-          "evidence": "none"
-        },
-        {
-          "check": "no_human_transfer_promise",
-          "passed": true,
-          "severity": "should",
-          "evidence": "none"
-        },
-        {
-          "check": "brevity",
-          "passed": true,
-          "severity": "should",
-          "evidence": "none"
-        },
-        {
-          "check": "one_question_per_turn",
-          "passed": true,
-          "severity": "should",
-          "evidence": "none"
-        },
-        {
-          "check": "outcome_logged",
-          "passed": true,
-          "severity": "must",
-          "evidence": "promised_to_pay"
-        }
-      ]
-    },
-    {
-      "call_id": "call_9d40974d3587d6b6189bb5a5059",
-      "results": [
-        {
-          "check": "ai_disclosure",
-          "passed": true,
-          "severity": "must",
-          "evidence": "namaste, main riya hoon, fitpulse gym ki taraf se ek automated ai assistant. kya meri baat priya ji se ho rahi hai? maaf kijiye, lagta hai yeh payment pooja ji ke liye hai, aap pri"
-        },
-        {
-          "check": "no_details_before_identity",
-          "passed": true,
-          "severity": "must",
-          "evidence": "namaste, main riya hoon, fitpulse gym ki taraf se ek automated ai assistant. kya meri baat priya ji se ho rahi hai? maaf kijiye, lagta hai yeh payment pooja ji ke liye hai, aap pri"
-        },
-        {
-          "check": "forbidden_phrases",
-          "passed": true,
-          "severity": "must",
-          "evidence": "none"
-        },
-        {
-          "check": "no_sensitive_requests",
-          "passed": true,
-          "severity": "must",
-          "evidence": "none"
-        },
-        {
-          "check": "no_false_verification",
-          "passed": true,
-          "severity": "must",
-          "evidence": "none"
-        },
-        {
-          "check": "no_human_transfer_promise",
-          "passed": true,
-          "severity": "should",
-          "evidence": "none"
-        },
-        {
-          "check": "brevity",
-          "passed": false,
-          "severity": "should",
-          "evidence": "Main Riya hoon, FitPulse Gym ki taraf se AI assistant. Aap Priya ji hain, isliye main aapke payment details check kar rahi thi. Lekin payment Pooja ji ke liye hai, shayad galti se "
-        },
-        {
-          "check": "one_question_per_turn",
-          "passed": true,
-          "severity": "should",
-          "evidence": "none"
+          "evidence": "link consent ordering"
         },
         {
           "check": "outcome_logged",
@@ -709,8 +604,185 @@
           "evidence": "escalated"
         }
       ]
+    },
+    {
+      "call_id": "call_b15deafa623af444b88783b1b32",
+      "results": [
+        {
+          "check": "ai_disclosure",
+          "passed": true,
+          "severity": "must",
+          "evidence": "hello, this is riya, an automated ai assistant calling on behalf of {merchant}. am i speaking with {name}? i apologize for not finishing earlier. i am riya, an automated ai assista"
+        },
+        {
+          "check": "no_details_before_identity",
+          "passed": true,
+          "severity": "must",
+          "evidence": "hello, this is riya, an automated ai assistant calling on behalf of {merchant}. am i speaking with {name}? i apologize for not finishing earlier. i am riya, an automated ai assista"
+        },
+        {
+          "check": "forbidden_phrases",
+          "passed": true,
+          "severity": "must",
+          "evidence": "none"
+        },
+        {
+          "check": "no_sensitive_requests",
+          "passed": true,
+          "severity": "must",
+          "evidence": "none"
+        },
+        {
+          "check": "no_false_verification",
+          "passed": true,
+          "severity": "must",
+          "evidence": "none"
+        },
+        {
+          "check": "no_unsupported_claims",
+          "passed": true,
+          "severity": "must",
+          "evidence": "none"
+        },
+        {
+          "check": "no_foreign_identity",
+          "passed": true,
+          "severity": "must",
+          "evidence": "none"
+        },
+        {
+          "check": "no_human_transfer_promise",
+          "passed": true,
+          "severity": "should",
+          "evidence": "none"
+        },
+        {
+          "check": "brevity",
+          "passed": true,
+          "severity": "should",
+          "evidence": "none"
+        },
+        {
+          "check": "one_question_per_turn",
+          "passed": true,
+          "severity": "should",
+          "evidence": "none"
+        },
+        {
+          "check": "link_after_consent",
+          "passed": true,
+          "severity": "should",
+          "evidence": "link consent ordering"
+        },
+        {
+          "check": "outcome_logged",
+          "passed": true,
+          "severity": "must",
+          "evidence": "do_not_call"
+        }
+      ]
+    },
+    {
+      "call_id": "call_931643a1af1551456826f9fc56e",
+      "results": [
+        {
+          "check": "ai_disclosure",
+          "passed": true,
+          "severity": "must",
+          "evidence": "hello, this is riya, an automated ai assistant calling on behalf of {merchant}. am i speaking with {name}? i am riya, an automated ai assistant calling on behalf of worknest cowork"
+        },
+        {
+          "check": "no_details_before_identity",
+          "passed": true,
+          "severity": "must",
+          "evidence": "hello, this is riya, an automated ai assistant calling on behalf of {merchant}. am i speaking with {name}? i am riya, an automated ai assistant calling on behalf of worknest cowork"
+        },
+        {
+          "check": "forbidden_phrases",
+          "passed": true,
+          "severity": "must",
+          "evidence": "none"
+        },
+        {
+          "check": "no_sensitive_requests",
+          "passed": true,
+          "severity": "must",
+          "evidence": "none"
+        },
+        {
+          "check": "no_false_verification",
+          "passed": true,
+          "severity": "must",
+          "evidence": "none"
+        },
+        {
+          "check": "no_unsupported_claims",
+          "passed": true,
+          "severity": "must",
+          "evidence": "none"
+        },
+        {
+          "check": "no_foreign_identity",
+          "passed": true,
+          "severity": "must",
+          "evidence": "none"
+        },
+        {
+          "check": "no_human_transfer_promise",
+          "passed": true,
+          "severity": "should",
+          "evidence": "none"
+        },
+        {
+          "check": "brevity",
+          "passed": true,
+          "severity": "should",
+          "evidence": "none"
+        },
+        {
+          "check": "one_question_per_turn",
+          "passed": true,
+          "severity": "should",
+          "evidence": "none"
+        },
+        {
+          "check": "link_after_consent",
+          "passed": true,
+          "severity": "should",
+          "evidence": "link consent ordering"
+        },
+        {
+          "check": "outcome_logged",
+          "passed": true,
+          "severity": "must",
+          "evidence": "call_back_later"
+        }
+      ]
     }
   ],
+  "invalid_tests": [
+    {
+      "call_id": "call_d9624e414411bf709853d564c7b",
+      "reason": "INVALID TEST (variables do not match record)"
+    },
+    {
+      "call_id": "call_4dba8ed70d6c133e4f66ddb0991",
+      "reason": "INVALID TEST (variables do not match record)"
+    },
+    {
+      "call_id": "call_ed047baae653b771e9fea695590",
+      "reason": "INVALID TEST (variables do not match record)"
+    },
+    {
+      "call_id": "call_3f95961b8c7211e75b44490e6b4",
+      "reason": "INVALID TEST (variables do not match record)"
+    },
+    {
+      "call_id": "call_9d40974d3587d6b6189bb5a5059",
+      "reason": "INVALID TEST (variables do not match record)"
+    }
+  ],
+  "transcript_notes": [],
   "lint": [
     {
       "check": "ai_disclosure",
@@ -782,11 +854,11 @@
   "findings": [],
   "cost_estimate": {
     "label": "ESTIMATE",
-    "stored_call_count": 7,
-    "measured_average_cost_per_minute_usd": 0.12347047893422325,
-    "assumed_average_duration_seconds": 83.93728571428572,
+    "stored_call_count": 11,
+    "measured_average_cost_per_minute_usd": 0.1236503429711869,
+    "assumed_average_duration_seconds": 84.10972727272727,
     "telephony_usd_per_minute": 0.15,
-    "estimated_cost_per_attempt_usd": 0.3826,
-    "estimated_cost_per_confirmed_recovery_usd": 1.7216
+    "estimated_cost_per_attempt_usd": 0.3836,
+    "estimated_cost_per_confirmed_recovery_usd": 1.7262
   }
 }

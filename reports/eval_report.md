@@ -1,9 +1,9 @@
 # Evaluation report
-Run timestamp: 2026-10-11T10:57:28.464330+00:00
+Run timestamp: 2026-10-12T20:17:01.012031+00:00
 
 ## Summary
 **SIMULATION NOTICE:** Funnel values are simulations of scripted backend behavior, not real-world recovery measurements.
-Must-pass: 94/94; should-pass: 19/21
+Must-pass: 99/100; should-pass: 24/24
 
 ## 1 Policy matrix (SIMULATED)
 - policy:no_consent: PASS — expected=no_consent, actual=no_consent, allowed=False
@@ -41,7 +41,7 @@ Must-pass: 94/94; should-pass: 19/21
 
 ## 3 Simulated funnel
 **SIMULATED:** allowlist bypassed only inside this harness; real `dial.py` still enforces it. Persona assignment determines the recovery number, so it is not a prediction.
-Commitment rate: (2 promised + 2 recovered) / 9 attempted = 4/9 (44.4%); confirmed recovery rate: 2/9 (22.2%).
+Commitment rate: (2 promised + 2 recovered) / 9 attempted = 3/9 (33.3%); confirmed recovery rate: 2/9 (22.2%).
 
 | Customer | Persona | Eligible | Final status | Outcome |
 |---|---|---|---|---|
@@ -57,15 +57,20 @@ Commitment rate: (2 promised + 2 recovered) / 9 attempted = 4/9 (44.4%); confirm
 | Kavita Joshi | cooperative_pays | yes | recovered | recovered |
 
 ## 4 Transcript checks on stored calls (MEASURED)
-| Call | ai_disclosure (must) | no_details_before_identity (must) | forbidden_phrases (must) | no_sensitive_requests (must) | no_false_verification (must) | no_human_transfer_promise (should) | brevity (should) | one_question_per_turn (should) | outcome_logged (must) |
-|---|---|---|---|---|---|---|---|---|---|
-| call_9261f824d5b351dd74b273498c2 | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
-| call_6ee911cf66e1732da4d22591fe1 | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
-| call_d9624e414411bf709853d564c7b | PASS | PASS | PASS | PASS | PASS | PASS | PASS | FAIL | PASS |
-| call_4dba8ed70d6c133e4f66ddb0991 | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
-| call_ed047baae653b771e9fea695590 | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
-| call_3f95961b8c7211e75b44490e6b4 | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
-| call_9d40974d3587d6b6189bb5a5059 | PASS | PASS | PASS | PASS | PASS | PASS | FAIL | PASS | PASS |
+### Invalid tests (excluded from pass counts)
+- call_d9624e414411bf709853d564c7b: INVALID TEST (variables do not match record)
+- call_4dba8ed70d6c133e4f66ddb0991: INVALID TEST (variables do not match record)
+- call_ed047baae653b771e9fea695590: INVALID TEST (variables do not match record)
+- call_3f95961b8c7211e75b44490e6b4: INVALID TEST (variables do not match record)
+- call_9d40974d3587d6b6189bb5a5059: INVALID TEST (variables do not match record)
+| Call | ai_disclosure (must) | no_details_before_identity (must) | forbidden_phrases (must) | no_sensitive_requests (must) | no_false_verification (must) | no_unsupported_claims (must) | no_foreign_identity (must) | no_human_transfer_promise (should) | brevity (should) | one_question_per_turn (should) | link_after_consent (should) | outcome_logged (must) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| call_9261f824d5b351dd74b273498c2 | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
+| call_6ee911cf66e1732da4d22591fe1 | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
+| call_35842422dff9e1916cf8fb281ee | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
+| call_773a1d6b60ff6838f8095819fd6 | PASS | PASS | FAIL | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
+| call_b15deafa623af444b88783b1b32 | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
+| call_931643a1af1551456826f9fc56e | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
 
 ## 5 Lint (SIMULATED)
 - ai_disclosure: PASS
@@ -83,12 +88,12 @@ Commitment rate: (2 promised + 2 recovered) / 9 attempted = 4/9 (44.4%); confirm
 ## 6 Cost estimate (ESTIMATE)
 {
   "label": "ESTIMATE",
-  "stored_call_count": 7,
-  "measured_average_cost_per_minute_usd": 0.12347047893422325,
-  "assumed_average_duration_seconds": 83.93728571428572,
+  "stored_call_count": 11,
+  "measured_average_cost_per_minute_usd": 0.1236503429711869,
+  "assumed_average_duration_seconds": 84.10972727272727,
   "telephony_usd_per_minute": 0.15,
-  "estimated_cost_per_attempt_usd": 0.3826,
-  "estimated_cost_per_confirmed_recovery_usd": 1.7216
+  "estimated_cost_per_attempt_usd": 0.3836,
+  "estimated_cost_per_confirmed_recovery_usd": 1.7262
 }
 
 ## 7 Limitations
