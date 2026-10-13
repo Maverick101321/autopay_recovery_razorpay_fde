@@ -157,6 +157,28 @@ def test_get_payment_context_rejects_mismatched_customer_first_name(api_test_ctx
     assert "Aarav" not in caplog.text
 
 
+def test_tool_outcome_binds_to_retell_call_id_and_creates_early_attempt(api_test_ctx, tool_headers):
+    client, db_file = api_test_ctx
+    conn = get_db_connection(db_file)
+    try:
+        with conn:
+            conn.execute("INSERT INTO call_attempts (failed_payment_id, retell_call_id, started_at) VALUES ('pay_001', 'ghost_open', '2026-01-01T00:00:00+00:00')")
+            conn.execute("INSERT INTO call_attempts (failed_payment_id, retell_call_id, started_at) VALUES ('pay_001', 'target_open', '2026-01-01T00:01:00+00:00')")
+    finally:
+        conn.close()
+    response = client.post("/tools/log_outcome", headers=tool_headers, json={"args":{"failed_payment_id":"pay_001","outcome":"promised_to_pay"}, "call":{"call_id":"target_open"}})
+    assert response.status_code == 200
+    conn = get_db_connection(db_file)
+    try:
+        assert conn.execute("SELECT outcome FROM call_attempts WHERE retell_call_id='target_open'").fetchone()[0] == "promised_to_pay"
+        assert conn.execute("SELECT outcome FROM call_attempts WHERE retell_call_id='ghost_open'").fetchone()[0] is None
+    finally: conn.close()
+    client.post("/tools/escalate_to_human", headers=tool_headers, json={"failed_payment_id":"pay_002","reason":"test","call_id":"before_started"})
+    conn = get_db_connection(db_file)
+    try: assert conn.execute("SELECT outcome FROM call_attempts WHERE retell_call_id='before_started'").fetchone()[0] == "escalated"
+    finally: conn.close()
+
+
 def test_create_payment_link_and_idempotency(api_test_ctx, tool_headers):
     client, db_file = api_test_ctx
 

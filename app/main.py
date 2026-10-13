@@ -69,6 +69,34 @@ def extract_args(payload: Any) -> dict[str, Any]:
     return {}
 
 
+def extract_call_id(body: Any) -> Optional[str]:
+    """Return Retell's call ID from custom-function payload variants."""
+    if isinstance(body, dict):
+        call = body.get("call")
+        if isinstance(call, dict) and call.get("call_id"):
+            return str(call["call_id"])
+        if body.get("call_id"):
+            return str(body["call_id"])
+    return None
+
+
+def get_call_attempt(db: sqlite3.Connection, failed_payment_id: str, body: Any) -> sqlite3.Row:
+    """Resolve the current attempt by Retell ID, creating it before webhook arrival."""
+    call_id = extract_call_id(body)
+    if call_id:
+        attempt = db.execute("SELECT * FROM call_attempts WHERE retell_call_id = ?", (call_id,)).fetchone()
+        if attempt:
+            return attempt
+        db.execute("INSERT INTO call_attempts (failed_payment_id, retell_call_id, started_at) VALUES (?, ?, ?)", (failed_payment_id, call_id, datetime.now(timezone.utc).isoformat()))
+        return db.execute("SELECT * FROM call_attempts WHERE retell_call_id = ?", (call_id,)).fetchone()
+    logger.warning("Tool request missing call ID; falling back to latest open attempt")
+    attempt = db.execute("SELECT * FROM call_attempts WHERE failed_payment_id = ? AND ended_at IS NULL ORDER BY id DESC LIMIT 1", (failed_payment_id,)).fetchone()
+    if attempt:
+        return attempt
+    db.execute("INSERT INTO call_attempts (failed_payment_id, started_at) VALUES (?, ?)", (failed_payment_id, datetime.now(timezone.utc).isoformat()))
+    return db.execute("SELECT * FROM call_attempts WHERE id = last_insert_rowid()").fetchone()
+
+
 tools_router = APIRouter(prefix="/tools", dependencies=[Depends(verify_tool_secret)])
 
 
@@ -146,10 +174,12 @@ async def create_payment_link(request: Request, db: sqlite3.Connection = Depends
     now_iso = datetime.now(timezone.utc).isoformat()
 
     with db:
+        attempt = get_call_attempt(db, failed_payment_id, body)
         db.execute(
             "INSERT INTO payment_links (id, failed_payment_id, url, created_at, status) VALUES (?, ?, ?, ?, 'created')",
             (link_id, failed_payment_id, url, now_iso),
         )
+        db.execute("UPDATE call_attempts SET notes = COALESCE(notes || '; ', '') || ? WHERE id = ?", ("payment link sent", attempt["id"]))
 
         msg_id = f"msg_{uuid.uuid4().hex[:8]}"
         sms_body = f"Please complete your payment of INR {payment['amount_inr']} for {payment['merchant_name']}: {url}"
@@ -210,21 +240,8 @@ async def log_outcome(request: Request, db: sqlite3.Connection = Depends(get_db)
             (new_status, new_retry, failed_payment_id),
         )
 
-        latest_attempt = db.execute(
-            "SELECT id, notes FROM call_attempts WHERE failed_payment_id = ? ORDER BY id DESC LIMIT 1",
-            (failed_payment_id,),
-        ).fetchone()
-
-        if latest_attempt:
-            db.execute(
-                "UPDATE call_attempts SET outcome = ?, notes = ? WHERE id = ?",
-                (outcome, notes, latest_attempt["id"]),
-            )
-        else:
-            db.execute(
-                "INSERT INTO call_attempts (failed_payment_id, started_at, outcome, notes) VALUES (?, ?, ?, ?)",
-                (failed_payment_id, datetime.now(timezone.utc).isoformat(), outcome, notes),
-            )
+        attempt = get_call_attempt(db, failed_payment_id, body)
+        db.execute("UPDATE call_attempts SET outcome = ?, notes = ? WHERE id = ?", (outcome, notes, attempt["id"]))
 
     return {"result": f"Outcome logged as {outcome}."}
 
@@ -260,6 +277,8 @@ async def schedule_retry(request: Request, db: sqlite3.Connection = Depends(get_
             "UPDATE failed_payments SET next_retry_at = ? WHERE id = ?",
             (retry_iso, failed_payment_id),
         )
+        attempt = get_call_attempt(db, failed_payment_id, body)
+        db.execute("UPDATE call_attempts SET notes = COALESCE(notes || '; ', '') || ? WHERE id = ?", (f"Retry scheduled for {retry_iso}", attempt["id"]))
 
     return {"result": f"Retry scheduled for {retry_iso}."}
 
@@ -288,19 +307,9 @@ async def escalate_to_human(request: Request, db: sqlite3.Connection = Depends(g
     with db:
         db.execute("UPDATE failed_payments SET status = 'escalated' WHERE id = ?", (failed_payment_id,))
 
-        latest_attempt = db.execute(
-            "SELECT id, notes FROM call_attempts WHERE failed_payment_id = ? ORDER BY id DESC LIMIT 1",
-            (failed_payment_id,),
-        ).fetchone()
-
-        if latest_attempt:
-            combined_notes = f"{latest_attempt['notes']}; {note_text}" if latest_attempt["notes"] else note_text
-            db.execute("UPDATE call_attempts SET notes = ?, outcome = 'escalated' WHERE id = ?", (combined_notes, latest_attempt["id"]))
-        else:
-            db.execute(
-                "INSERT INTO call_attempts (failed_payment_id, started_at, outcome, notes) VALUES (?, ?, 'escalated', ?)",
-                (failed_payment_id, datetime.now(timezone.utc).isoformat(), note_text),
-            )
+        attempt = get_call_attempt(db, failed_payment_id, body)
+        combined_notes = f"{attempt['notes']}; {note_text}" if attempt["notes"] else note_text
+        db.execute("UPDATE call_attempts SET notes = ?, outcome = 'escalated' WHERE id = ?", (combined_notes, attempt["id"]))
 
     return {"result": f"Call escalated to human support: {reason}."}
 

@@ -149,18 +149,27 @@ def run_funnel(client: Any, conn: sqlite3.Connection, secret: str, scenarios: di
 
 
 def stored_transcripts(checks: Any, enabled: bool) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    if not enabled: return [], []
+    if not enabled: return [], [], [], [], [], []
     path = ROOT / "data" / "autopay.db"
-    if not path.exists(): return [], [{"note":"No real data/autopay.db file exists."}]
+    if not path.exists(): return [], [{"note":"No real data/autopay.db file exists."}], [], [], [], []
     try:
         conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True); conn.row_factory = sqlite3.Row
-        rows = conn.execute("""SELECT ca.retell_call_id, ca.transcript, ca.outcome, ca.raw_events,
-            c.name, p.merchant_name FROM call_attempts ca
+        rows = conn.execute("""SELECT ca.retell_call_id, ca.transcript, ca.outcome, ca.raw_events, ca.ended_at, ca.started_at,
+            ca.failed_payment_id, c.name, p.merchant_name FROM call_attempts ca
             LEFT JOIN failed_payments p ON p.id = ca.failed_payment_id LEFT JOIN customers c ON c.id = p.customer_id""").fetchall()
         other_rows = conn.execute("SELECT c.name, p.merchant_name FROM customers c JOIN failed_payments p ON p.customer_id=c.id").fetchall(); conn.close()
-    except sqlite3.Error as exc: return [], [{"note":f"Stored-call check skipped: {exc}"}]
-    reports = []; results: list[dict[str, Any]] = []; invalid: list[dict[str, Any]] = []; notes: list[str] = []
+    except sqlite3.Error as exc: return [], [{"note":f"Stored-call check skipped: {exc}"}], [], [], [], []
+    labels = json.loads((ROOT / "evals" / "call_labels.json").read_text()).get("labels", {})
+    reports = []; results: list[dict[str, Any]] = []; invalid: list[dict[str, Any]] = []; notes: list[str] = []; ghosts: list[dict[str, Any]] = []; superseded: list[dict[str, Any]] = []
     for row in rows:
+        label = labels.get(row["retell_call_id"], {})
+        if label.get("status") == "superseded":
+            superseded.append({"call_id": row["retell_call_id"], "label": label.get("label", ""), "note": label.get("note", "")}); continue
+        if not row["ended_at"] and not row["transcript"] and row["started_at"]:
+            try:
+                if (datetime.now(timezone.utc) - datetime.fromisoformat(row["started_at"]).astimezone(timezone.utc)).total_seconds() > 1800:
+                    ghosts.append({"call_id":row["retell_call_id"], "reason":"ghost (no end event)"}); continue
+            except ValueError: pass
         if row["transcript"]:
             variables = None
             try:
@@ -175,8 +184,13 @@ def stored_transcripts(checks: Any, enabled: bool) -> tuple[list[dict[str, Any]]
             if not has_identity_variables: notes.append(f"{row['retell_call_id']}: variables unavailable; identity binding check skipped.")
             context = {"outcome":row["outcome"], "customer_first_name":(row["name"] or "").split()[0], "merchant_name":row["merchant_name"] or "", "other_names":[x["name"].split()[0] for x in other_rows] + [x["merchant_name"] for x in other_rows]}
             checked = checks.check_transcript(row["transcript"], context)
-            reports.append({"call_id":row["retell_call_id"], "results":checked}); results.extend(checked)
-    return results, reports or [{"note":"No stored calls with transcripts."}], invalid, notes
+            channel = "unknown"
+            try:
+                event_call = (events[-1].get("call") or {}) if events else {}
+                channel = event_call.get("call_type") or "unknown"
+            except (IndexError, AttributeError): pass
+            reports.append({"call_id":row["retell_call_id"], "payment_id":row["failed_payment_id"], "label":label.get("label", ""), "channel":channel, "results":checked}); results.extend(checked)
+    return results, reports or [{"note":"No stored calls with transcripts."}], invalid, notes, ghosts, superseded
 
 
 def cost_metrics(db_path: Path | None = None) -> dict[str, Any]:
@@ -186,13 +200,24 @@ def cost_metrics(db_path: Path | None = None) -> dict[str, Any]:
     if not path.exists(): return fallback
     try:
         conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
-        rows = conn.execute("SELECT call_cost_usd, duration_ms FROM call_attempts WHERE call_cost_usd IS NOT NULL AND duration_ms > 0").fetchall()
+        try:
+            rows = conn.execute("SELECT call_cost_usd, duration_ms, raw_events FROM call_attempts WHERE call_cost_usd IS NOT NULL AND duration_ms > 0").fetchall()
+        except sqlite3.OperationalError:
+            rows = [(cost, duration, None) for cost, duration in conn.execute("SELECT call_cost_usd, duration_ms FROM call_attempts WHERE call_cost_usd IS NOT NULL AND duration_ms > 0").fetchall()]
         conn.close()
     except sqlite3.Error:
         return fallback
     if not rows: return fallback
-    rates = [float(cost) / (float(duration) / 60000) for cost, duration in rows]
-    return {"stored_call_count": len(rows), "measured_average_cost_per_minute_usd": sum(rates) / len(rates), "assumed_average_duration_seconds": sum(float(row[1]) / 1000 for row in rows) / len(rows)}
+    rates = [float(row[0]) / (float(row[1]) / 60000) for row in rows]
+    by_channel: dict[str, list[float]] = {}
+    for cost, duration, raw_events in rows:
+        channel = "unknown"
+        try:
+            events = json.loads(raw_events or "[]")
+            channel = ((events[-1].get("call") or {}).get("call_type")) or "unknown"
+        except (ValueError, TypeError, IndexError, AttributeError): pass
+        by_channel.setdefault(channel, []).append(float(cost) / (float(duration) / 60000))
+    return {"stored_call_count": len(rows), "measured_average_cost_per_minute_usd": sum(rates) / len(rates), "assumed_average_duration_seconds": sum(float(row[1]) / 1000 for row in rows) / len(rows), "retell_cost_per_minute_by_channel": {channel: sum(values) / len(values) for channel, values in by_channel.items()}}
 
 
 def render_markdown(report: dict[str, Any]) -> str:
@@ -208,14 +233,20 @@ def render_markdown(report: dict[str, Any]) -> str:
         lines += ["### Invalid tests (excluded from pass counts)"] + [f"- {row['call_id']}: {row['reason']}" for row in report["invalid_tests"]]
     if report.get("transcript_notes"):
         lines += ["### Identity-binding notes"] + [f"- {note}" for note in report["transcript_notes"]]
+    if report.get("ghost_calls"):
+        lines += ["### Ghost calls (excluded from pass counts)"] + [f"- {row['call_id']}: {row['reason']}" for row in report["ghost_calls"]]
+    if report.get("superseded_calls"):
+        lines += ["### Superseded calls (excluded from pass counts)"] + [f"- {row['call_id']} ({row['label']}): {row['note']}" for row in report["superseded_calls"]]
     calls = [row for row in report["stored_transcripts"] if "results" in row]
     if not calls: lines.append("No stored calls with transcripts.")
     else:
         names = [item["check"] for item in calls[0]["results"]]
-        lines += ["| Call | " + " | ".join(f"{name} ({next(x['severity'] for x in calls[0]['results'] if x['check'] == name)})" for name in names) + " |", "|---|" + "|".join("---" for _ in names) + "|"]
+        lines += ["| Call | Payment ID | Scenario | Channel | " + " | ".join(f"{name} ({next(x['severity'] for x in calls[0]['results'] if x['check'] == name)})" for name in names) + " |", "|---|---|---|---|" + "|".join("---" for _ in names) + "|"]
         for call in calls:
             statuses = {x["check"]: "PASS" if x["passed"] else "FAIL" for x in call["results"]}
-            lines.append("| " + str(call["call_id"]) + " | " + " | ".join(statuses.get(name, "—") for name in names) + " |")
+            lines.append("| " + str(call["call_id"]) + f" | {call.get('payment_id','')} | {call.get('label','')} | {call.get('channel','')} | " + " | ".join(statuses.get(name, "—") for name in names) + " |")
+        failures = [(call["call_id"], check) for call in calls for check in call["results"] if not check["passed"]]
+        if failures: lines += ["Failures:"] + [f"- {call_id}: {check['check']} — {check['evidence']}" for call_id, check in failures]
     lines += ["", "## 5 Lint (SIMULATED)"]
     lines += [f"- {r['check']}: {'PASS' if r['passed'] else 'FAIL'}" for r in report["lint"]]
     lines += ["", "## 6 Cost estimate (ESTIMATE)", json.dumps(report["cost_estimate"], indent=2), "", "## 7 Limitations", "- LLM behavior is non-deterministic and only spot-checked on stored calls.", "- Personas are scripted; no real payments occurred.", "- Allowlist bypass applies only inside the simulation.", "- Hindi quality is not evaluated automatically.", "- Heuristic checks can miss paraphrases."]
@@ -251,12 +282,13 @@ def main(argv: list[str] | None = None) -> int:
             sample_p = conn.execute("SELECT * FROM failed_payments WHERE id='pay_001'").fetchone(); sample_c = conn.execute("SELECT * FROM customers WHERE id='cust_001'").fetchone(); opening = build_call_payload(sample_p, sample_c, "+1", "a")["retell_llm_dynamic_variables"]["opening_line"]
             add(lint, "opening_line", next(x for x in checks.check_transcript("Agent: "+opening+"\nUser: Yes.") if x["check"] == "ai_disclosure")["passed"])
         conn.close()
-        transcript_results, transcript_report, invalid_tests, transcript_notes = stored_transcripts(checks, not args.no_db_transcripts)
+        transcript_results, transcript_report, invalid_tests, transcript_notes, ghost_calls, superseded_calls = stored_transcripts(checks, not args.no_db_transcripts)
     all_results = policy + tools + funnel_results + lint + transcript_results
     must_total = sum(x["severity"] == "must" for x in all_results); must_passed = sum(x["severity"] == "must" and x["passed"] for x in all_results); should_total = sum(x["severity"] == "should" for x in all_results); should_passed = sum(x["severity"] == "should" and x["passed"] for x in all_results)
     measured = cost_metrics()
-    per_attempt = (measured["measured_average_cost_per_minute_usd"] + scenarios["telephony_usd_per_minute"]) * measured["assumed_average_duration_seconds"] / 60
-    report = {"run_timestamp":datetime.now(timezone.utc).isoformat(), "summary":{"must_passed":must_passed,"must_total":must_total,"should_passed":should_passed,"should_total":should_total}, "policy_matrix":policy, "tool_behavior":tools, "funnel":funnel, "stored_transcripts":transcript_report, "invalid_tests":invalid_tests, "transcript_notes":transcript_notes, "lint":lint, "findings":findings, "cost_estimate":{"label":"ESTIMATE", **measured, "telephony_usd_per_minute":scenarios["telephony_usd_per_minute"],"estimated_cost_per_attempt_usd":round(per_attempt,4),"estimated_cost_per_confirmed_recovery_usd":round(per_attempt / (funnel["confirmed_recovered"] / funnel["attempted"]),4) if funnel["confirmed_recovered"] else None}}
+    telephony = scenarios.get("telephony_usd_per_minute_measured") or scenarios["telephony_usd_per_minute"]
+    per_attempt = (measured["measured_average_cost_per_minute_usd"] + telephony) * measured["assumed_average_duration_seconds"] / 60
+    report = {"run_timestamp":datetime.now(timezone.utc).isoformat(), "summary":{"must_passed":must_passed,"must_total":must_total,"should_passed":should_passed,"should_total":should_total}, "policy_matrix":policy, "tool_behavior":tools, "funnel":funnel, "stored_transcripts":transcript_report, "invalid_tests":invalid_tests, "transcript_notes":transcript_notes, "ghost_calls":ghost_calls, "superseded_calls":superseded_calls, "lint":lint, "findings":findings, "cost_estimate":{"label":"ESTIMATE", **measured, "telephony_usd_per_minute":telephony, "telephony_source":"MEASURED" if scenarios.get("telephony_usd_per_minute_measured") is not None else "ASSUMED","estimated_cost_per_attempt_usd":round(per_attempt,4),"estimated_cost_per_confirmed_recovery_usd":round(per_attempt / (funnel["confirmed_recovered"] / funnel["attempted"]),4) if funnel["confirmed_recovered"] else None}}
     (out / "eval_report.json").write_text(json.dumps(report, indent=2) + "\n"); (out / "eval_report.md").write_text(render_markdown(report))
     if not args.json_only: print(f"Evaluation complete: must {must_passed}/{must_total}, should {should_passed}/{should_total}; reports: {out}")
     return 0 if must_passed == must_total else 1

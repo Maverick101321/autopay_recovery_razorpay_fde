@@ -1,10 +1,10 @@
 {
-  "run_timestamp": "2026-10-13T07:50:35.056889+00:00",
+  "run_timestamp": "2026-10-13T11:21:02.930751+00:00",
   "summary": {
-    "must_passed": 136,
-    "must_total": 140,
-    "should_passed": 44,
-    "should_total": 44
+    "must_passed": 144,
+    "must_total": 148,
+    "should_passed": 48,
+    "should_total": 48
   },
   "policy_matrix": [
     {
@@ -181,7 +181,7 @@
       "check": "tool:admin_calls_sanitized",
       "passed": true,
       "severity": "must",
-      "evidence": "[{\"id\":1,\"failed_payment_id\":\"pay_002\",\"retell_call_id\":null,\"started_at\":\"2026-10-13T07:50:35.006839+00:00\",\"ended_at\":"
+      "evidence": "[{\"id\":3,\"failed_payment_id\":\"pay_004\",\"retell_call_id\":null,\"started_at\":\"2026-10-13T11:21:02.885431+00:00\",\"ended_at\":"
     },
     {
       "check": "tool:paid_now_normalized",
@@ -299,6 +299,9 @@
   "stored_transcripts": [
     {
       "call_id": "call_9261f824d5b351dd74b273498c2",
+      "payment_id": "pay_001",
+      "label": "",
+      "channel": "web_call",
       "results": [
         {
           "check": "ai_disclosure",
@@ -376,6 +379,9 @@
     },
     {
       "call_id": "call_6ee911cf66e1732da4d22591fe1",
+      "payment_id": "pay_002",
+      "label": "",
+      "channel": "web_call",
       "results": [
         {
           "check": "ai_disclosure",
@@ -453,6 +459,9 @@
     },
     {
       "call_id": "call_35842422dff9e1916cf8fb281ee",
+      "payment_id": "pay_003",
+      "label": "",
+      "channel": "web_call",
       "results": [
         {
           "check": "ai_disclosure",
@@ -530,6 +539,9 @@
     },
     {
       "call_id": "call_773a1d6b60ff6838f8095819fd6",
+      "payment_id": "pay_006",
+      "label": "",
+      "channel": "web_call",
       "results": [
         {
           "check": "ai_disclosure",
@@ -607,6 +619,9 @@
     },
     {
       "call_id": "call_b15deafa623af444b88783b1b32",
+      "payment_id": "pay_007",
+      "label": "",
+      "channel": "web_call",
       "results": [
         {
           "check": "ai_disclosure",
@@ -684,6 +699,9 @@
     },
     {
       "call_id": "call_931643a1af1551456826f9fc56e",
+      "payment_id": "pay_008",
+      "label": "",
+      "channel": "web_call",
       "results": [
         {
           "check": "ai_disclosure",
@@ -761,6 +779,9 @@
     },
     {
       "call_id": "call_e5d282a7b4bedcad57500393059",
+      "payment_id": "pay_008",
+      "label": "",
+      "channel": "web_call",
       "results": [
         {
           "check": "ai_disclosure",
@@ -838,6 +859,9 @@
     },
     {
       "call_id": "call_0550ec0e558189d59180320e99f",
+      "payment_id": "pay_007",
+      "label": "",
+      "channel": "web_call",
       "results": [
         {
           "check": "ai_disclosure",
@@ -915,6 +939,9 @@
     },
     {
       "call_id": "call_a933c8f94f33212c3daeb94b13c",
+      "payment_id": "pay_006",
+      "label": "",
+      "channel": "web_call",
       "results": [
         {
           "check": "ai_disclosure",
@@ -992,6 +1019,9 @@
     },
     {
       "call_id": "call_1f1a29e758d25fcd1279beebc4c",
+      "payment_id": "pay_003",
+      "label": "",
+      "channel": "web_call",
       "results": [
         {
           "check": "ai_disclosure",
@@ -1069,6 +1099,9 @@
     },
     {
       "call_id": "call_868285db003ce749760e93d5fbf",
+      "payment_id": "pay_003",
+      "label": "",
+      "channel": "web_call",
       "results": [
         {
           "check": "ai_disclosure",
@@ -1143,6 +1176,86 @@
           "evidence": "None"
         }
       ]
+    },
+    {
+      "call_id": "call_770a2208dacf40fb5016139a437",
+      "payment_id": "pay_001",
+      "label": "",
+      "channel": "phone_call",
+      "results": [
+        {
+          "check": "ai_disclosure",
+          "passed": true,
+          "severity": "must",
+          "evidence": "hello, this is riya, an automated ai assistant calling on behalf of streamflix. am i speaking with aarav? i\u2019m sorry, i"
+        },
+        {
+          "check": "no_details_before_identity",
+          "passed": true,
+          "severity": "must",
+          "evidence": "hello, this is riya, an automated ai assistant calling on behalf of streamflix. am i speaking with aarav? i\u2019m sorry, i"
+        },
+        {
+          "check": "forbidden_phrases",
+          "passed": true,
+          "severity": "must",
+          "evidence": "none"
+        },
+        {
+          "check": "no_sensitive_requests",
+          "passed": true,
+          "severity": "must",
+          "evidence": "none"
+        },
+        {
+          "check": "no_false_verification",
+          "passed": true,
+          "severity": "must",
+          "evidence": "none"
+        },
+        {
+          "check": "no_unsupported_claims",
+          "passed": true,
+          "severity": "must",
+          "evidence": "none"
+        },
+        {
+          "check": "no_foreign_identity",
+          "passed": true,
+          "severity": "must",
+          "evidence": "none"
+        },
+        {
+          "check": "no_human_transfer_promise",
+          "passed": true,
+          "severity": "should",
+          "evidence": "none"
+        },
+        {
+          "check": "brevity",
+          "passed": true,
+          "severity": "should",
+          "evidence": "none"
+        },
+        {
+          "check": "one_question_per_turn",
+          "passed": true,
+          "severity": "should",
+          "evidence": "none"
+        },
+        {
+          "check": "link_after_consent",
+          "passed": true,
+          "severity": "should",
+          "evidence": "link consent ordering"
+        },
+        {
+          "check": "outcome_logged",
+          "passed": true,
+          "severity": "must",
+          "evidence": "promised_to_pay"
+        }
+      ]
     }
   ],
   "invalid_tests": [
@@ -1168,6 +1281,13 @@
     }
   ],
   "transcript_notes": [],
+  "ghost_calls": [
+    {
+      "call_id": "call_252569c013944578baa9df84ab9",
+      "reason": "ghost (no end event)"
+    }
+  ],
+  "superseded_calls": [],
   "lint": [
     {
       "check": "ai_disclosure",
@@ -1239,11 +1359,16 @@
   "findings": [],
   "cost_estimate": {
     "label": "ESTIMATE",
-    "stored_call_count": 16,
-    "measured_average_cost_per_minute_usd": 0.1265871954762094,
-    "assumed_average_duration_seconds": 75.54975,
+    "stored_call_count": 17,
+    "measured_average_cost_per_minute_usd": 0.12653494861455353,
+    "assumed_average_duration_seconds": 75.32188235294117,
+    "retell_cost_per_minute_by_channel": {
+      "web_call": 0.1265871954762094,
+      "phone_call": 0.1256989988280596
+    },
     "telephony_usd_per_minute": 0.15,
-    "estimated_cost_per_attempt_usd": 0.3483,
-    "estimated_cost_per_confirmed_recovery_usd": 1.5672
+    "telephony_source": "ASSUMED",
+    "estimated_cost_per_attempt_usd": 0.3472,
+    "estimated_cost_per_confirmed_recovery_usd": 1.5622
   }
 }

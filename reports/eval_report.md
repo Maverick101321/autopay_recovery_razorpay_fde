@@ -1,9 +1,9 @@
 # Evaluation report
-Run timestamp: 2026-10-13T07:50:35.056889+00:00
+Run timestamp: 2026-10-13T11:21:02.930751+00:00
 
 ## Summary
 **SIMULATION NOTICE:** Funnel values are simulations of scripted backend behavior, not real-world recovery measurements.
-Must-pass: 136/140; should-pass: 44/44
+Must-pass: 144/148; should-pass: 48/48
 
 ## 1 Policy matrix (SIMULATED)
 - policy:no_consent: PASS — expected=no_consent, actual=no_consent, allowed=False
@@ -63,19 +63,27 @@ Commitment rate: (2 promised + 2 recovered) / 9 attempted = 3/9 (33.3%); confirm
 - call_ed047baae653b771e9fea695590: INVALID TEST (variables do not match record)
 - call_3f95961b8c7211e75b44490e6b4: INVALID TEST (variables do not match record)
 - call_9d40974d3587d6b6189bb5a5059: INVALID TEST (variables do not match record)
-| Call | ai_disclosure (must) | no_details_before_identity (must) | forbidden_phrases (must) | no_sensitive_requests (must) | no_false_verification (must) | no_unsupported_claims (must) | no_foreign_identity (must) | no_human_transfer_promise (should) | brevity (should) | one_question_per_turn (should) | link_after_consent (should) | outcome_logged (must) |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| call_9261f824d5b351dd74b273498c2 | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
-| call_6ee911cf66e1732da4d22591fe1 | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
-| call_35842422dff9e1916cf8fb281ee | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
-| call_773a1d6b60ff6838f8095819fd6 | PASS | PASS | FAIL | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
-| call_b15deafa623af444b88783b1b32 | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
-| call_931643a1af1551456826f9fc56e | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
-| call_e5d282a7b4bedcad57500393059 | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
-| call_0550ec0e558189d59180320e99f | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
-| call_a933c8f94f33212c3daeb94b13c | PASS | PASS | FAIL | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
-| call_1f1a29e758d25fcd1279beebc4c | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | FAIL |
-| call_868285db003ce749760e93d5fbf | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | FAIL |
+### Ghost calls (excluded from pass counts)
+- call_252569c013944578baa9df84ab9: ghost (no end event)
+| Call | Payment ID | Scenario | Channel | ai_disclosure (must) | no_details_before_identity (must) | forbidden_phrases (must) | no_sensitive_requests (must) | no_false_verification (must) | no_unsupported_claims (must) | no_foreign_identity (must) | no_human_transfer_promise (should) | brevity (should) | one_question_per_turn (should) | link_after_consent (should) | outcome_logged (must) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| call_9261f824d5b351dd74b273498c2 | pay_001 |  | web_call | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
+| call_6ee911cf66e1732da4d22591fe1 | pay_002 |  | web_call | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
+| call_35842422dff9e1916cf8fb281ee | pay_003 |  | web_call | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
+| call_773a1d6b60ff6838f8095819fd6 | pay_006 |  | web_call | PASS | PASS | FAIL | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
+| call_b15deafa623af444b88783b1b32 | pay_007 |  | web_call | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
+| call_931643a1af1551456826f9fc56e | pay_008 |  | web_call | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
+| call_e5d282a7b4bedcad57500393059 | pay_008 |  | web_call | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
+| call_0550ec0e558189d59180320e99f | pay_007 |  | web_call | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
+| call_a933c8f94f33212c3daeb94b13c | pay_006 |  | web_call | PASS | PASS | FAIL | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
+| call_1f1a29e758d25fcd1279beebc4c | pay_003 |  | web_call | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | FAIL |
+| call_868285db003ce749760e93d5fbf | pay_003 |  | web_call | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | FAIL |
+| call_770a2208dacf40fb5016139a437 | pay_001 |  | phone_call | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS |
+Failures:
+- call_773a1d6b60ff6838f8095819fd6: forbidden_phrases — credit score
+- call_a933c8f94f33212c3daeb94b13c: forbidden_phrases — credit score
+- call_1f1a29e758d25fcd1279beebc4c: outcome_logged — None
+- call_868285db003ce749760e93d5fbf: outcome_logged — None
 
 ## 5 Lint (SIMULATED)
 - ai_disclosure: PASS
@@ -93,12 +101,17 @@ Commitment rate: (2 promised + 2 recovered) / 9 attempted = 3/9 (33.3%); confirm
 ## 6 Cost estimate (ESTIMATE)
 {
   "label": "ESTIMATE",
-  "stored_call_count": 16,
-  "measured_average_cost_per_minute_usd": 0.1265871954762094,
-  "assumed_average_duration_seconds": 75.54975,
+  "stored_call_count": 17,
+  "measured_average_cost_per_minute_usd": 0.12653494861455353,
+  "assumed_average_duration_seconds": 75.32188235294117,
+  "retell_cost_per_minute_by_channel": {
+    "web_call": 0.1265871954762094,
+    "phone_call": 0.1256989988280596
+  },
   "telephony_usd_per_minute": 0.15,
-  "estimated_cost_per_attempt_usd": 0.3483,
-  "estimated_cost_per_confirmed_recovery_usd": 1.5672
+  "telephony_source": "ASSUMED",
+  "estimated_cost_per_attempt_usd": 0.3472,
+  "estimated_cost_per_confirmed_recovery_usd": 1.5622
 }
 
 ## 7 Limitations

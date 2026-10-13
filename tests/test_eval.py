@@ -34,7 +34,9 @@ def test_network_guard_blocks_httpx():
 def test_eval_end_to_end_does_not_change_real_db(tmp_path):
     db = ROOT / "data" / "autopay.db"
     before = hashlib.sha256(db.read_bytes()).hexdigest() if db.exists() else None
-    assert main(["--out", str(tmp_path)]) == 0
+    # Stored calls may legitimately contain must-check failures; the harness still
+    # writes its report and never mutates the real database.
+    assert main(["--out", str(tmp_path)]) in (0, 1)
     report = json.loads((tmp_path / "eval_report.json").read_text())
     assert {"summary", "policy_matrix", "tool_behavior", "funnel", "stored_transcripts", "lint", "cost_estimate"} <= report.keys()
     after = hashlib.sha256(db.read_bytes()).hexdigest() if db.exists() else None
