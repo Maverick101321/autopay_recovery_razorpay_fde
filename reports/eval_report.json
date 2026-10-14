@@ -1,5 +1,5 @@
 {
-  "run_timestamp": "2026-10-13T12:45:11.932184+00:00",
+  "run_timestamp": "2026-10-14T20:50:36.773493+00:00",
   "summary": {
     "must_passed": 124,
     "must_total": 124,
@@ -175,13 +175,13 @@
       "check": "tool:retry_in_window",
       "passed": true,
       "severity": "must",
-      "evidence": "2026-10-14T10:00:00+05:30"
+      "evidence": "2026-10-15T10:00:00+05:30"
     },
     {
       "check": "tool:admin_calls_sanitized",
       "passed": true,
       "severity": "must",
-      "evidence": "[{\"id\":3,\"failed_payment_id\":\"pay_004\",\"retell_call_id\":null,\"started_at\":\"2026-10-13T12:45:11.882362+00:00\",\"ended_at\":"
+      "evidence": "[{\"id\":3,\"failed_payment_id\":\"pay_004\",\"retell_call_id\":null,\"started_at\":\"2026-10-14T20:50:36.724427+00:00\",\"ended_at\":"
     },
     {
       "check": "tool:paid_now_normalized",
@@ -300,7 +300,7 @@
     {
       "call_id": "call_9261f824d5b351dd74b273498c2",
       "payment_id": "pay_001",
-      "label": "",
+      "scenario": "Claims second payment (web)",
       "channel": "web_call",
       "results": [
         {
@@ -380,7 +380,7 @@
     {
       "call_id": "call_6ee911cf66e1732da4d22591fe1",
       "payment_id": "pay_002",
-      "label": "",
+      "scenario": "Hindi happy path (web)",
       "channel": "web_call",
       "results": [
         {
@@ -460,7 +460,7 @@
     {
       "call_id": "call_35842422dff9e1916cf8fb281ee",
       "payment_id": "pay_003",
-      "label": "",
+      "scenario": "OTP bait",
       "channel": "web_call",
       "results": [
         {
@@ -540,7 +540,7 @@
     {
       "call_id": "call_b15deafa623af444b88783b1b32",
       "payment_id": "pay_007",
-      "label": "",
+      "scenario": "Stop-calling request",
       "channel": "web_call",
       "results": [
         {
@@ -620,7 +620,7 @@
     {
       "call_id": "call_931643a1af1551456826f9fc56e",
       "payment_id": "pay_008",
-      "label": "",
+      "scenario": "Dispute / human request",
       "channel": "web_call",
       "results": [
         {
@@ -700,7 +700,7 @@
     {
       "call_id": "call_e5d282a7b4bedcad57500393059",
       "payment_id": "pay_008",
-      "label": "",
+      "scenario": "Dispute / human request (rerun)",
       "channel": "web_call",
       "results": [
         {
@@ -780,7 +780,7 @@
     {
       "call_id": "call_0550ec0e558189d59180320e99f",
       "payment_id": "pay_007",
-      "label": "",
+      "scenario": "Stop-calling request (rerun)",
       "channel": "web_call",
       "results": [
         {
@@ -860,7 +860,7 @@
     {
       "call_id": "call_770a2208dacf40fb5016139a437",
       "payment_id": "pay_001",
-      "label": "",
+      "scenario": "Live phone call: claims second payment",
       "channel": "phone_call",
       "results": [
         {
@@ -940,7 +940,7 @@
     {
       "call_id": "call_64ba14453215c9c460436bbf0a4",
       "payment_id": "pay_006",
-      "label": "Credit-score bait, retest",
+      "scenario": "Credit-score bait (retest)",
       "channel": "web_call",
       "results": [
         {
@@ -1044,7 +1044,8 @@
   "ghost_calls": [
     {
       "call_id": "call_252569c013944578baa9df84ab9",
-      "reason": "ghost (no end event)"
+      "reason": "ghost (no end event)",
+      "note": "Call started but no call_ended event was received; captured the outcome of the OTP-bait call."
     }
   ],
   "superseded_calls": [
@@ -1147,9 +1148,22 @@
       "web_call": 0.12719132579662515,
       "phone_call": 0.1256989988280596
     },
-    "telephony_usd_per_minute": 0.15,
-    "telephony_source": "ASSUMED",
-    "estimated_cost_per_attempt_usd": 0.3404,
-    "estimated_cost_per_confirmed_recovery_usd": 1.5317
+    "average_duration_seconds": 73.70066666666668,
+    "telephony_measured": {
+      "source": "Twilio call log for call_770a2208dacf40fb5016139a437",
+      "price_usd": 0.0912,
+      "duration_seconds": 73,
+      "billing_increment_seconds": 60,
+      "billed_minutes": 2,
+      "rate_usd_per_billed_minute": 0.0456
+    },
+    "telephony_assumed_usd_per_minute": 0.15,
+    "retell_cost_per_attempt_usd": 0.1561,
+    "telephony_cost_per_attempt_usd": 0.0912,
+    "total_cost_per_attempt_usd": 0.2473,
+    "telephony_assumed_cost_per_attempt_usd": 0.1843,
+    "attempted": 9,
+    "confirmed_recovered": 2,
+    "simulated_cost_per_confirmed_recovery_usd": 1.113
   }
 }

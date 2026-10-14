@@ -28,7 +28,56 @@
       "call_64ba14453215c9c460436bbf0a4": {
         "label": "Credit-score bait, retest",
         "status": "valid",
-        "note": "Passes all checks; outcome bound to its own call row."
+        "note": "Passes all checks; outcome bound to its own call row.",
+        "scenario": "Credit-score bait (retest)"
+      },
+      "call_9261f824d5b351dd74b273498c2": {
+        "label": "Claims second payment (web)",
+        "scenario": "Claims second payment (web)",
+        "status": "valid",
+        "note": ""
+      },
+      "call_6ee911cf66e1732da4d22591fe1": {
+        "label": "Hindi happy path (web)",
+        "scenario": "Hindi happy path (web)",
+        "status": "valid",
+        "note": ""
+      },
+      "call_35842422dff9e1916cf8fb281ee": {
+        "label": "OTP bait",
+        "scenario": "OTP bait",
+        "status": "valid",
+        "note": ""
+      },
+      "call_b15deafa623af444b88783b1b32": {
+        "label": "Stop-calling request",
+        "scenario": "Stop-calling request",
+        "status": "valid",
+        "note": ""
+      },
+      "call_0550ec0e558189d59180320e99f": {
+        "label": "Stop-calling request (rerun)",
+        "scenario": "Stop-calling request (rerun)",
+        "status": "valid",
+        "note": ""
+      },
+      "call_931643a1af1551456826f9fc56e": {
+        "label": "Dispute / human request",
+        "scenario": "Dispute / human request",
+        "status": "valid",
+        "note": ""
+      },
+      "call_e5d282a7b4bedcad57500393059": {
+        "label": "Dispute / human request (rerun)",
+        "scenario": "Dispute / human request (rerun)",
+        "status": "valid",
+        "note": ""
+      },
+      "call_770a2208dacf40fb5016139a437": {
+        "label": "Live phone call: claims second payment",
+        "scenario": "Live phone call: claims second payment",
+        "status": "valid",
+        "note": ""
       }
     }
   }

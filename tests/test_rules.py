@@ -23,7 +23,7 @@ def test_is_dialable_logic(monkeypatch: pytest.MonkeyPatch):
 
 def test_cust_003_to_cust_010_never_dialable(monkeypatch: pytest.MonkeyPatch):
     """Assert that with DEMO_PHONE set, cust_003 through cust_010 are all not dialable."""
-    monkeypatch.setenv("DEMO_PHONE", "+918433907272")
+    monkeypatch.setenv("DEMO_PHONE", "+919999900001")
 
     for i in range(3, 11):
         fake_phone = f"+9198765{i:05d}"

@@ -8,7 +8,7 @@ from app.db import get_db_connection
 from scripts.dial import run_dial
 from scripts.seed import seed_database
 
-TEST_DEMO_PHONE = "+918433907272"
+TEST_DEMO_PHONE = "+919999900001"
 TEST_FROM_NUMBER = "+14155552671"
 
 

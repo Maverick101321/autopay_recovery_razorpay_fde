@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import logging
+import math
 import os
 import socket
 import sqlite3
@@ -165,10 +166,12 @@ def stored_transcripts(checks: Any, enabled: bool) -> tuple[list[dict[str, Any]]
         label = labels.get(row["retell_call_id"], {})
         if label.get("status") == "superseded":
             superseded.append({"call_id": row["retell_call_id"], "label": label.get("label", ""), "note": label.get("note", "")}); continue
+        if label.get("status") == "ghost":
+            ghosts.append({"call_id": row["retell_call_id"], "reason": "ghost (no end event)", "note": label.get("note", "")}); continue
         if not row["ended_at"] and not row["transcript"] and row["started_at"]:
             try:
                 if (datetime.now(timezone.utc) - datetime.fromisoformat(row["started_at"]).astimezone(timezone.utc)).total_seconds() > 1800:
-                    ghosts.append({"call_id":row["retell_call_id"], "reason":"ghost (no end event)"}); continue
+                    ghosts.append({"call_id":row["retell_call_id"], "reason":"ghost (no end event)", "note":label.get("note", "")}); continue
             except ValueError: pass
         if row["transcript"]:
             variables = None
@@ -189,7 +192,7 @@ def stored_transcripts(checks: Any, enabled: bool) -> tuple[list[dict[str, Any]]
                 event_call = (events[-1].get("call") or {}) if events else {}
                 channel = event_call.get("call_type") or "unknown"
             except (IndexError, AttributeError): pass
-            reports.append({"call_id":row["retell_call_id"], "payment_id":row["failed_payment_id"], "label":label.get("label", ""), "channel":channel, "results":checked}); results.extend(checked)
+            reports.append({"call_id":row["retell_call_id"], "payment_id":row["failed_payment_id"], "scenario":label.get("scenario", ""), "channel":channel, "results":checked}); results.extend(checked)
     return results, reports or [{"note":"No stored calls with transcripts."}], invalid, notes, ghosts, superseded
 
 
@@ -220,6 +223,12 @@ def cost_metrics(db_path: Path | None = None) -> dict[str, Any]:
     return {"stored_call_count": len(rows), "measured_average_cost_per_minute_usd": sum(rates) / len(rates), "assumed_average_duration_seconds": sum(float(row[1]) / 1000 for row in rows) / len(rows), "retell_cost_per_minute_by_channel": {channel: sum(values) / len(values) for channel, values in by_channel.items()}}
 
 
+def telephony_cost(duration_seconds: float, measured: dict[str, Any]) -> float:
+    """Price a call using the measured provider billing increment."""
+    billed_minutes = math.ceil(duration_seconds / measured["billing_increment_seconds"])
+    return billed_minutes * measured["rate_usd_per_billed_minute"]
+
+
 def render_markdown(report: dict[str, Any]) -> str:
     s = report["summary"]
     lines = ["# Evaluation report", f"Run timestamp: {report['run_timestamp']}", "", "## Summary", "**SIMULATION NOTICE:** Funnel values are simulations of scripted backend behavior, not real-world recovery measurements.", f"Must-pass: {s['must_passed']}/{s['must_total']}; should-pass: {s['should_passed']}/{s['should_total']}", "", "## 1 Policy matrix (SIMULATED)"]
@@ -234,7 +243,7 @@ def render_markdown(report: dict[str, Any]) -> str:
     if report.get("transcript_notes"):
         lines += ["### Identity-binding notes"] + [f"- {note}" for note in report["transcript_notes"]]
     if report.get("ghost_calls"):
-        lines += ["### Ghost calls (excluded from pass counts)"] + [f"- {row['call_id']}: {row['reason']}" for row in report["ghost_calls"]]
+        lines += ["### Ghost calls (excluded from pass counts)"] + [f"- {row['call_id']}: {row['reason']}{'; ' + row['note'] if row.get('note') else ''}" for row in report["ghost_calls"]]
     if report.get("superseded_calls"):
         lines += ["### Superseded calls (excluded from pass counts)"] + [f"- {row['call_id']} ({row['label']}): {row['note']}" for row in report["superseded_calls"]]
     calls = [row for row in report["stored_transcripts"] if "results" in row]
@@ -244,12 +253,21 @@ def render_markdown(report: dict[str, Any]) -> str:
         lines += ["| Call | Payment ID | Scenario | Channel | " + " | ".join(f"{name} ({next(x['severity'] for x in calls[0]['results'] if x['check'] == name)})" for name in names) + " |", "|---|---|---|---|" + "|".join("---" for _ in names) + "|"]
         for call in calls:
             statuses = {x["check"]: "PASS" if x["passed"] else "FAIL" for x in call["results"]}
-            lines.append("| " + str(call["call_id"]) + f" | {call.get('payment_id','')} | {call.get('label','')} | {call.get('channel','')} | " + " | ".join(statuses.get(name, "—") for name in names) + " |")
+            lines.append("| " + str(call["call_id"]) + f" | {call.get('payment_id','')} | {call.get('scenario','')} | {call.get('channel','')} | " + " | ".join(statuses.get(name, "—") for name in names) + " |")
         failures = [(call["call_id"], check) for call in calls for check in call["results"] if not check["passed"]]
         if failures: lines += ["Failures:"] + [f"- {call_id}: {check['check']} — {check['evidence']}" for call_id, check in failures]
     lines += ["", "## 5 Lint (SIMULATED)"]
     lines += [f"- {r['check']}: {'PASS' if r['passed'] else 'FAIL'}" for r in report["lint"]]
-    lines += ["", "## 6 Cost estimate (ESTIMATE)", json.dumps(report["cost_estimate"], indent=2), "", "## 7 Limitations", "- LLM behavior is non-deterministic and only spot-checked on stored calls.", "- Personas are scripted; no real payments occurred.", "- Allowlist bypass applies only inside the simulation.", "- Hindi quality is not evaluated automatically.", "- Heuristic checks can miss paraphrases."]
+    cost = report["cost_estimate"]
+    simulated_recovery_cost = cost["simulated_cost_per_confirmed_recovery_usd"]
+    lines += ["", "## 6 Cost estimate (ESTIMATE)",
+              f"- Retell (MEASURED, n={cost['stored_call_count']}): ${cost['measured_average_cost_per_minute_usd']:.4f}/minute; ${cost['retell_cost_per_attempt_usd']:.4f} per attempt at {cost['average_duration_seconds']:.1f}s average duration.",
+              f"- Telephony (MEASURED, n=1): ${cost['telephony_measured']['price_usd']:.4f} for {cost['telephony_measured']['duration_seconds']}s from {cost['telephony_measured']['source']}; ${cost['telephony_cost_per_attempt_usd']:.4f} per attempt at the average duration using {cost['telephony_measured']['billing_increment_seconds']}s billing increments.",
+              f"- Total estimated cost per attempt: ${cost['total_cost_per_attempt_usd']:.4f} (Retell ${cost['retell_cost_per_attempt_usd']:.4f} + telephony ${cost['telephony_cost_per_attempt_usd']:.4f}).",
+              f"- Telephony (ASSUMED comparison only): ${cost['telephony_assumed_usd_per_minute']:.2f}/minute; ${cost['telephony_assumed_cost_per_attempt_usd']:.4f} per attempt.",
+              f"- SIMULATED funnel cost per confirmed recovery: {f'${simulated_recovery_cost:.4f}' if simulated_recovery_cost is not None else 'N/A'} ({cost['confirmed_recovered']}/{cost['attempted']} confirmed recoveries).",
+              "- Retell measured cost per minute by channel: " + ", ".join(f"{channel} ${rate:.4f}" for channel, rate in cost["retell_cost_per_minute_by_channel"].items()),
+              "", "## 7 Limitations", "- LLM behavior is non-deterministic and only spot-checked on stored calls.", "- Personas are scripted; no real payments occurred.", "- Allowlist bypass applies only inside the simulation.", "- Hindi quality is not evaluated automatically.", "- Heuristic checks can miss paraphrases."]
     if report["findings"]: lines += ["", "## Findings"] + [f"- {x}" for x in report["findings"]]
     return "\n".join(lines) + "\n"
 
@@ -286,9 +304,13 @@ def main(argv: list[str] | None = None) -> int:
     all_results = policy + tools + funnel_results + lint + transcript_results
     must_total = sum(x["severity"] == "must" for x in all_results); must_passed = sum(x["severity"] == "must" and x["passed"] for x in all_results); should_total = sum(x["severity"] == "should" for x in all_results); should_passed = sum(x["severity"] == "should" and x["passed"] for x in all_results)
     measured = cost_metrics()
-    telephony = scenarios.get("telephony_usd_per_minute_measured") or scenarios["telephony_usd_per_minute"]
-    per_attempt = (measured["measured_average_cost_per_minute_usd"] + telephony) * measured["assumed_average_duration_seconds"] / 60
-    report = {"run_timestamp":datetime.now(timezone.utc).isoformat(), "summary":{"must_passed":must_passed,"must_total":must_total,"should_passed":should_passed,"should_total":should_total}, "policy_matrix":policy, "tool_behavior":tools, "funnel":funnel, "stored_transcripts":transcript_report, "invalid_tests":invalid_tests, "transcript_notes":transcript_notes, "ghost_calls":ghost_calls, "superseded_calls":superseded_calls, "lint":lint, "findings":findings, "cost_estimate":{"label":"ESTIMATE", **measured, "telephony_usd_per_minute":telephony, "telephony_source":"MEASURED" if scenarios.get("telephony_usd_per_minute_measured") is not None else "ASSUMED","estimated_cost_per_attempt_usd":round(per_attempt,4),"estimated_cost_per_confirmed_recovery_usd":round(per_attempt / (funnel["confirmed_recovered"] / funnel["attempted"]),4) if funnel["confirmed_recovered"] else None}}
+    average_duration = measured["assumed_average_duration_seconds"]
+    telephony_measured = scenarios["telephony_measured"]
+    retell_per_attempt = measured["measured_average_cost_per_minute_usd"] * average_duration / 60
+    telephony_per_attempt = telephony_cost(average_duration, telephony_measured)
+    total_per_attempt = retell_per_attempt + telephony_per_attempt
+    assumed_telephony_per_attempt = scenarios["telephony_assumed_usd_per_minute"] * average_duration / 60
+    report = {"run_timestamp":datetime.now(timezone.utc).isoformat(), "summary":{"must_passed":must_passed,"must_total":must_total,"should_passed":should_passed,"should_total":should_total}, "policy_matrix":policy, "tool_behavior":tools, "funnel":funnel, "stored_transcripts":transcript_report, "invalid_tests":invalid_tests, "transcript_notes":transcript_notes, "ghost_calls":ghost_calls, "superseded_calls":superseded_calls, "lint":lint, "findings":findings, "cost_estimate":{"label":"ESTIMATE", **measured, "average_duration_seconds":average_duration, "telephony_measured":telephony_measured, "telephony_assumed_usd_per_minute":scenarios["telephony_assumed_usd_per_minute"], "retell_cost_per_attempt_usd":round(retell_per_attempt,4), "telephony_cost_per_attempt_usd":round(telephony_per_attempt,4), "total_cost_per_attempt_usd":round(total_per_attempt,4), "telephony_assumed_cost_per_attempt_usd":round(assumed_telephony_per_attempt,4), "attempted":funnel["attempted"], "confirmed_recovered":funnel["confirmed_recovered"], "simulated_cost_per_confirmed_recovery_usd":round(total_per_attempt / (funnel["confirmed_recovered"] / funnel["attempted"]),4) if funnel["confirmed_recovered"] and funnel["attempted"] else None}}
     (out / "eval_report.json").write_text(json.dumps(report, indent=2) + "\n"); (out / "eval_report.md").write_text(render_markdown(report))
     if not args.json_only: print(f"Evaluation complete: must {must_passed}/{must_total}, should {should_passed}/{should_total}; reports: {out}")
     return 0 if must_passed == must_total else 1

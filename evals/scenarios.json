@@ -1,7 +1,13 @@
 {
-  "telephony_usd_per_minute": 0.15,
-  "telephony_note": "Fixed offline estimate for Retell Twilio-backed India outbound calls.",
-  "telephony_usd_per_minute_measured": null,
+  "telephony_measured": {
+    "source": "Twilio call log for call_770a2208dacf40fb5016139a437",
+    "price_usd": 0.0912,
+    "duration_seconds": 73,
+    "billing_increment_seconds": 60,
+    "billed_minutes": 2,
+    "rate_usd_per_billed_minute": 0.0456
+  },
+  "telephony_assumed_usd_per_minute": 0.15,
   "persona_mapping": {"pay_001":"cooperative_pays","pay_002":"cooperative_no_followthrough","pay_003":"refuses","pay_004":"claims_already_paid","pay_005":"wrong_person","pay_006":"call_back_later","pay_007":"do_not_call","pay_008":"dispute_angry","pay_009":"lookup_failure","pay_010":"cooperative_pays"},
   "personas": {
     "cooperative_pays":{"steps":["context","link","promised","confirm"],"status":"recovered","outcome":"recovered","link":true},

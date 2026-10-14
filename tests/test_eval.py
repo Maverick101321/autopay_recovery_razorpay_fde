@@ -6,7 +6,7 @@ import httpx
 
 from evals.checks import check_payment_context, check_transcript
 from scripts.run_eval import main, network_guard
-from scripts.run_eval import cost_metrics
+from scripts.run_eval import cost_metrics, telephony_cost
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -60,6 +60,11 @@ def test_cost_metrics_uses_usd_per_minute(tmp_path):
     assert measured["stored_call_count"] == 1
     assert measured["measured_average_cost_per_minute_usd"] == 0.15
     assert measured["assumed_average_duration_seconds"] == 60
+
+
+def test_measured_telephony_cost_rounds_to_the_next_billing_increment():
+    measured = json.loads((ROOT / "evals" / "scenarios.json").read_text())["telephony_measured"]
+    assert telephony_cost(73, measured) == 0.0912
 
 
 def test_scenarios_puts_claims_paid_on_an_eligible_customer():
